@@ -1843,12 +1843,23 @@
         }
 
         function renderFaceMesh(landmarks) {
-            const key = [33, 263, 1, 61, 291, 199, 4, 152, 10, 164];
             uiCtx.save();
             landmarks.forEach((lm, i) => {
-                if(!key.includes(i)) return;
-                uiCtx.beginPath(); uiCtx.arc((1 - lm.x) * width, lm.y * height, 1, 0, Math.PI * 2);
-                uiCtx.fillStyle = 'rgba(0, 240, 255, 0.4)'; uiCtx.fill();
+                // Render all 468 landmarks for high-fidelity 'Holo-Face' effect
+                uiCtx.beginPath(); 
+                uiCtx.arc((1 - lm.x) * width, lm.y * height, 0.6, 0, Math.PI * 2);
+                uiCtx.fillStyle = 'rgba(0, 240, 255, 0.4)'; 
+                uiCtx.fill();
+                
+                // Add sporadic 'sparkling' effect to key facial nodes
+                if(i % 20 === 0) {
+                    uiCtx.beginPath();
+                    uiCtx.arc((1 - lm.x) * width, lm.y * height, 1.2, 0, Math.PI * 2);
+                    uiCtx.fillStyle = 'rgba(0, 240, 255, 0.8)';
+                    uiCtx.shadowBlur = 4;
+                    uiCtx.shadowColor = '#00F0FF';
+                    uiCtx.fill();
+                }
             });
             uiCtx.restore();
         }
