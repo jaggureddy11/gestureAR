@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gesture</title>
+    <!-- Modern Typeface -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- MediaPipe Latest Models -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="env.js"></script>
+    
+    <style>
+        :root {
+            --bg: #000000;
+            --accent: #00f0ff;
+            --ui-bg: #000000;
+            --ui-border: rgba(255, 255, 255, 0.08);
+            --text-main: rgba(255, 255, 255, 0.95);
+            --text-muted: rgba(255, 255, 255, 0.5);
+        }
+
+        .toolbar {
+            position: absolute; top: 24px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 8px; z-index: 50;
+            background: #000000;
+            padding: 8px 12px;
+            border-radius: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            align-items: center;
+        }
+
+        .color-picker-container {
+            position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 16px; z-index: 50;
+            background: #000000;
+            padding: 12px 24px;
+            border-radius: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            align-items: center;
+        }
+
+        .glass-btn {
+            background: transparent;
+            color: #fff;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-btn:hover { background: rgba(255,255,255,0.1); transform: scale(1.05); }
+        .glass-btn:active { transform: scale(0.95); }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: #fff;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Essential Layout */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #canvasBg {
+            z-index: 1;
+            opacity: 1.0; /* Full 4K un-filtered quality */
+            transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #canvasDraw { z-index: 2; }
+        #canvas3D { z-index: 3; pointer-events: none; mix-blend-mode: screen; opacity: 0; transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        #canvasUI { z-index: 4; pointer-events: none; } /* Separated UI rendering for speed */
+
+        /* Top Bar */
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 24px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .logo {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        .status-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            pointer-events: auto;
+        }
+
+        .glass-btn {
+            background: var(--ui-bg);
+            border: 0.5px solid var(--ui-border);
+            color: var(--text-main);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .glass-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
+
+        /* Bottom Control Pill */
+        .bottom-bar {
+            position: absolute;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            gap: 16px;
+        }
+
+        .control-pill {
+            background: var(--ui-bg);
+            border: 0.5px solid var(--ui-border);
+            border-radius: 40px;
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .swatches { display: flex; gap: 8px; }
+
+        .swatch {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1.5px solid rgba(255,255,255,0.1);
+        }
+
+        .swatch.active {
+            transform: scale(1.25);
+            border-color: #fff;
+            box-shadow: 0 0 12px currentColor;
+        }
+
+        .template-btn {
+            font-size: 16px; 
+            padding: 8px 12px !important; 
+            border-radius: 24px !important;
+            background: transparent !important;
+            border: none !important;
+        }
+        .template-btn.active {
+            background: rgba(255, 255, 255, 0.2) !important;
+            box-shadow: inset 0 1px 2px rgba(255,255,255,0.3) !important;
+        }
+
+        .divider {
+            width: 1px;
+            height: 24px;
+            background: var(--ui-border);
+        }
+
+        /* Sliders */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .control-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            width: 80px;
+        }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Action Buttons */
+        .action-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 0.5px solid var(--ui-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-main);
+        }
+        .action-btn:hover { background: rgba(255,255,255,0.15); }
+        .action-btn svg { width: 16px; height: 16px; fill: currentColor; }
+        
+        .save-btn {
+            background: var(--text-main);
+            color: #000;
+            border-radius: 30px;
+            padding: 0 20px;
+            height: 36px;
+            font-weight: 600;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            transition: transform 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .save-btn:hover { transform: scale(1.05); }
+
+        /* Status Indicator */
+        #gestureStatus {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--ui-bg);
+            border: 0.5px solid var(--ui-border);
+            padding: 8px 24px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: none;
+            align-items: center;
+            gap: 12px;
+            z-index: 10;
+        }
+        
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        /* Modal */
+        #tutorialModal {
+            position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            z-index: 100;
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.4s;
+        }
+
+        .modal-content {
+            background: var(--bg);
+            border: 1px solid var(--ui-border);
+            border-radius: 24px;
+            padding: 48px;
+            width: 100%; max-width: 540px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Subtle glow in modal */
+        .modal-content::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 100px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+        }
+
+        .modal-title { font-size: 24px; font-weight: 500; margin-bottom: 8px; color: #fff; text-align: center; }
+        .modal-subtitle { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 40px; }
+
+        .gesture-rules {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 48px;
+        }
+
+        .rule-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--ui-border);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex; gap: 16px; align-items: flex-start;
+        }
+
+        .rule-icon { font-size: 28px; line-height: 1; }
+        .rule-text h4 { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 4px; }
+        .rule-text p { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+        .start-btn {
+            background: #fff; color: #000; border: none;
+            width: 100%; padding: 16px; border-radius: 12px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .start-btn:hover { transform: translateY(-2px); }
+
+        /* AI Panel Styling */
+        .ai-panel {
+            position: absolute; bottom: 100px; right: 30px; width: 340px;
+            background: rgba(18, 18, 22, 0.85); border: 1px solid var(--ui-border);
+            border-radius: 20px; padding: 24px;
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+            display: none; flex-direction: column; gap: 16px; z-index: 50;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.6); color: var(--text-main);
+        }
+        .ai-header { display: flex; justify-content: space-between; align-items: center; }
+        .ai-header h3 { font-size: 15px; font-weight: 600; margin: 0; }
+        .close-btn { background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer; line-height: 1; }
+        .ai-input { background: rgba(0,0,0,0.5); border: 1px solid var(--ui-border); border-radius: 12px; padding: 14px; color: #fff; font-family: inherit; font-size: 12px; width: 100%; box-sizing: border-box; }
+        textarea.ai-input { resize: none; height: 80px; }
+        .ai-input:focus { outline: none; border-color: var(--accent); }
+        .ai-actions { display: flex; gap: 10px; }
+        .ai-btn { background: rgba(255,255,255,0.1); border: 1px solid var(--ui-border); color: #fff; flex: 1; padding: 12px; border-radius: 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .ai-btn.primary { background: var(--text-main); color: #000; border: none; }
+        .ai-btn:hover { transform: translateY(-2px); }
+        .ai-status { font-size: 11px; color: #00FFFF; text-align: center; font-weight: 500; margin-top: 4px; }
+
+        video { display: none; }
+    </style>
+</head>
+<body>
+    <!-- Render Layers -->
+    <canvas id="canvasBg"></canvas>   <!-- Live Camera / AR Base -->
+    <canvas id="canvasDraw"></canvas> <!-- Vector Strokes -->
+    <canvas id="canvasUI"></canvas>   <!-- Hand Mesh & Cursors -->
+
+    <!-- Status Indicator -->
+    <div id="gestureStatus">
+        <div class="status-dot"></div>
+        <span class="status-text">DRAWING</span>
+    </div>
+
+    <!-- UI Overlay -->
+    <div class="top-bar">
+        <div class="logo">Gesture AR</div>
+        <div class="status-area">
+            <button id="toggleStrings" class="glass-btn" title="Intense Two-Hands String Art">
+                <span style="font-size: 14px;">🧶</span>
+                <span>Strings</span>
+            </button>
+            <button id="toggleRubbers" class="glass-btn" title="Realistic Physics Rubber Bands">
+                <span style="font-size: 14px;">🪀</span>
+                <span>Rubbers</span>
+            </button>
+            <button id="toggleParticles" class="glass-btn" title="Interactive 3D Particles">
+                <span style="font-size: 14px;">✨</span>
+                <span>Particles</span>
+            </button>
+            <button id="toggleMesh" class="glass-btn">
+                <span>Face Mesh</span>
+            </button>
+            <button id="toggleCam" class="glass-btn" style="background: rgba(255,255,255,0.1);">
+                <div class="status-dot" style="background:#39FF14; box-shadow:0 0 8px #39FF14"></div>
+                <span>Camera ON</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="bottom-bar">
+        <div class="control-pill">
+            <div class="swatches" id="swatchContainer"></div>
+            
+            <div class="divider"></div>
+            
+            <div class="control-group">
+                <div class="control-label">Glow</div>
+                <input type="range" id="glowSlider" class="slider-glow" min="0" max="100" value="70">
+            </div>
+            <div class="control-group">
+                <div class="control-label">Size</div>
+                <input type="range" id="sizeSlider" class="slider-size" min="2" max="30" value="6">
+            </div>
+
+            <div class="divider"></div>
+
+            <button class="action-btn" id="btnUndo" title="Undo (Z)">
+                <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+            </button>
+            <button class="action-btn" id="btnClear" title="Clear (C)">
+                <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
+            </button>
+            
+            <div class="divider"></div>
+            <button class="save-btn" id="btnSave">EXPORT</button>
+        </div>
+    </div>
+
+    <!-- Rubber Band Color Picker -->
+    <div id="rubberColorContainer" style="display: none; position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 50; background: #000000; padding: 12px 24px; border-radius: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.1); align-items: center; gap: 12px; pointer-events: auto;">
+        <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.6);">Rubber Tint</span>
+        <select id="rubberColorPicker" style="background: transparent; color: white; border: none; font-weight: bold; font-size: 14px; padding: 4px; outline: none; cursor: pointer; text-align: center;">
+            <option value="rainbow">🌈 Spectrum</option>
+            <option value="#e6b450">🟨 Amber</option>
+            <option value="#ff3b30">🟥 Crimson</option>
+            <option value="#34c759">🟩 Emerald</option>
+            <option value="#007aff">🟦 Cobalt</option>
+            <option value="#ffffff">⬜ Pure</option>
+        </select>
+    </div>
+
+    <!-- Particle Config Panel -->
+    <div id="particleSettingsContainer" style="display: none; position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 50; background: #000000; padding: 12px 16px; border-radius: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.1); flex-direction: column; gap: 8px; pointer-events: auto; width: max-content; align-items: center;">
+        <div style="font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.15em;">Holo Matrix</div>
+        <div style="display: flex; gap: 4px;">
+            <button class="glass-btn template-btn active" data-template="galaxy" title="Galaxy">🌌</button>
+            <button class="glass-btn template-btn" data-template="heart" title="Heart">❤️</button>
+            <button class="glass-btn template-btn" data-template="flower" title="Flower">🌸</button>
+            <button class="glass-btn template-btn" data-template="saturn" title="Saturn">🪐</button>
+            <button class="glass-btn template-btn" data-template="sphere" title="Sphere">🌕</button>
+            <button class="glass-btn template-btn" data-template="cube" title="Cube">🧊</button>
+            <button class="glass-btn template-btn" data-template="torus" title="Torus">🍩</button>
+        </div>
+        <div style="width: 100%; display: flex; align-items: center; gap: 12px;">
+            <button id="multiColorBtn" class="glass-btn" style="padding: 4px 12px; font-size: 10px; background: rgba(255,255,255,0.2);">🌈 Rainbow Mode</button>
+            <input type="color" id="particleColorPicker" value="#FFFFFF" style="border:none; width:40px; height:16px; border-radius: 12px; background: transparent; cursor: pointer;">
+        </div>
+    </div>
+
+    <!-- Onboarding Modal -->
+    <div id="tutorialModal">
+        <div class="modal-content">
+            <h2 class="modal-title">Welcome to Gesture AR</h2>
+            <p class="modal-subtitle">Master spatial computing drawing with these hand gestures.</p>
+            
+            <div class="gesture-rules">
+                <div class="rule-card">
+                    <div class="rule-icon">☝️</div>
+                    <div class="rule-text">
+                        <h4>Draw</h4>
+                        <p>Extend only your index finger to draw glowing lines in space.</p>
+                    </div>
+                </div>
+                <div class="rule-card">
+                    <div class="rule-icon">🖐️</div>
+                    <div class="rule-text">
+                        <h4>Erase</h4>
+                        <p>Open your entire palm and sweep over strokes to erase them perfectly.</p>
+                    </div>
+                </div>
+                <div class="rule-card">
+                    <div class="rule-icon">🤏</div>
+                    <div class="rule-text">
+                        <h4>Move Camera</h4>
+                        <p>Pinch your thumb and index together to drag your artwork.</p>
+                    </div>
+                </div>
+                <div class="rule-card">
+                    <div class="rule-icon">✊</div>
+                    <div class="rule-text">
+                        <h4>Idle</h4>
+                        <p>Close your fist to pause everything and rest your hand.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="start-btn" onclick="document.getElementById('tutorialModal').style.opacity=0; setTimeout(()=>document.getElementById('tutorialModal').style.display='none',400)">
+                Start Creating
+            </button>
+        </div>
+    </div>
+
+
+    <canvas id="canvas3D"></canvas>
+    <video id="videoElement" autoplay playsinline></video>
+
+    <script>
+        /* ================= 
+           CORE ENGINE
+           ================= */
+        const canvasBg = document.getElementById('canvasBg');
+        const canvasDraw = document.getElementById('canvasDraw');
+        const canvasUI = document.getElementById('canvasUI');
+        const bgCtx = canvasBg.getContext('2d');
+        const drawCtx = canvasDraw.getContext('2d');
+        const uiCtx = canvasUI.getContext('2d');
+        const video = document.getElementById('videoElement');
+        const gestureStatus = document.getElementById('gestureStatus');
+        
+        let width, height;
+        let showMesh = false;
+        let showCam = true; 
+        let stringsMode = false;
+        let rubberMode = false;
+        
+        // Audio for string stretch
+        let audioCtx = null;
+        let stretchOsc = null;
+        let stretchGain = null;
+        let frictionFilter = null;
+        let lastStretchDist = 0;
+
+        function initRubberAudio() {
+            if(!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Slow sawtooth provides individual impulse clicks mimicking physical friction
+                stretchOsc = audioCtx.createOscillator();
+                stretchOsc.type = 'sawtooth'; 
+                
+                // Lowpass filter makes the popping sound thick, dull, and soft like physical rubber instead of a harsh buzzer
+                frictionFilter = audioCtx.createBiquadFilter();
+                frictionFilter.type = 'lowpass';
+                frictionFilter.frequency.value = 600;
+                
+                stretchGain = audioCtx.createGain();
+                stretchGain.gain.value = 0;
+                
+                stretchOsc.connect(frictionFilter);
+                frictionFilter.connect(stretchGain);
+                stretchGain.connect(audioCtx.destination);
+                
+                stretchOsc.start();
+            }
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        
+        function stopRubberAudio() {
+            if(audioCtx && stretchGain) {
+                stretchGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+            }
+        }
+        
+        // Premium default colors
+        const colors = ['#00FFFF', '#FF00FF', '#39FF14', '#0D6EFD', '#FF69B4', '#FFD700', '#ffffff'];
+        let activeColor = colors[0]; 
+        let currentGlow = 70;
+        let currentSize = 6;
+        
+        // State
+        let strokes = [];
+        let currentPath = null;
+        let grabX = 0, grabY = 0;
+        let isGrabbing = false;
+        let currentGesture = 'idle';
+
+        // --- Three.js Particle System ---
+        let particlesMode = false;
+        let threeScene, threeCamera, threeRenderer, particleSystem;
+        let targetPoints = [];
+        let currentPoints = [];
+        let velocities = [];
+        const NUM_PARTICLES = 5000;
+
+        function createGlowTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createRadialGradient(64, 64, 4, 64, 64, 64);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            grad.addColorStop(0.1, 'rgba(255, 255, 255, 0.9)');
+            grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.25)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 128, 128);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function initThreeJS() {
+            const canvas3D = document.getElementById('canvas3D');
+            threeScene = new THREE.Scene();
+            threeCamera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            threeCamera.position.z = 4;
+            
+            threeRenderer = new THREE.WebGLRenderer({ canvas: canvas3D, alpha: true, antialias: true });
+            threeRenderer.setPixelRatio(window.devicePixelRatio); // Fixes Retina Mac blurriness
+            threeRenderer.setSize(window.innerWidth, window.innerHeight);
+            
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(NUM_PARTICLES * 3);
+            const colors = new Float32Array(NUM_PARTICLES * 3);
+            const sizeOffsets = new Float32Array(NUM_PARTICLES);
+            
+            for(let i=0; i<NUM_PARTICLES; i++) {
+                currentPoints.push(new THREE.Vector3(0,0,0));
+                targetPoints.push(new THREE.Vector3(0,0,0));
+                velocities.push(new THREE.Vector3(0,0,0));
+                sizeOffsets[i] = Math.random();
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('sizeOffset', new THREE.BufferAttribute(sizeOffsets, 1));
+            
+            const uniforms = {
+                time: { value: 0 },
+                tex: { value: createGlowTexture() }
+            };
+            
+            const material = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: `
+                    attribute vec3 color;
+                    attribute float sizeOffset;
+                    varying vec3 vColor;
+                    varying float vAlpha;
+                    uniform float time;
+                    void main() {
+                        vColor = color;
+                        // Beautiful intense glowing pulsation
+                        vAlpha = 0.3 + 0.7 * sin(time * 2.0 + sizeOffset * 15.0);
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        // Much larger, softer impressive particles
+                        gl_PointSize = (15.0 + sizeOffset * 30.0) * (2.0 / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    uniform sampler2D tex;
+                    varying vec3 vColor;
+                    varying float vAlpha;
+                    void main() {
+                        vec4 texColor = texture2D(tex, gl_PointCoord);
+                        gl_FragColor = vec4(vColor, vAlpha * texColor.a);
+                    }
+                `,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+            
+            particleSystem = new THREE.Points(geometry, material);
+            threeScene.add(particleSystem);
+            
+            setParticleTemplate('galaxy');
+            updateParticleColor();
+        }
+
+        let isMultiColor = false;
+        
+        let explosionState = 0;
+        let prevCenterX = 0;
+        let prevCenterY = 0;
+        let prevHandsDist = 0;
+        
+        function initParticleAudio() {}
+        function stopParticleAudio() {}
+
+        function updateParticleColor() {
+            const hex = document.getElementById('particleColorPicker').value;
+            const singleColor = new THREE.Color(hex);
+            const colorsAttr = particleSystem.geometry.attributes.color.array;
+            for(let i=0; i<NUM_PARTICLES; i++) {
+                if(isMultiColor) {
+                    // Smooth elegant rainbow mapping across sequence
+                    const hue = (i / NUM_PARTICLES) + Math.random() * 0.05;
+                    const c = new THREE.Color().setHSL(hue, 1.0, 0.6);
+                    colorsAttr[i*3] = c.r;
+                    colorsAttr[i*3+1] = c.g;
+                    colorsAttr[i*3+2] = c.b;
+                } else {
+                    colorsAttr[i*3] = Math.max(0, Math.min(1, singleColor.r + (Math.random()-0.5)*0.15));
+                    colorsAttr[i*3+1] = Math.max(0, Math.min(1, singleColor.g + (Math.random()-0.5)*0.15));
+                    colorsAttr[i*3+2] = Math.max(0, Math.min(1, singleColor.b + (Math.random()-0.5)*0.15));
+                }
+            }
+            particleSystem.geometry.attributes.color.needsUpdate = true;
+        }
+
+        function generateHeartPoints(count) {
+            const pts = [];
+            for(let i=0; i<count; i++) {
+                const t = Math.PI * 2 * Math.random();
+                const x = 16 * Math.pow(Math.sin(t), 3);
+                const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+                const z = (Math.random() - 0.5) * 5;
+                pts.push(new THREE.Vector3(x/15, y/15, z/15));
+            }
+            return pts;
+        }
+
+        function generateSaturnPoints(count) {
+            const pts = [];
+            for(let i=0; i<count*0.4; i++) {
+                const u = Math.random() * Math.PI * 2;
+                const v = Math.random() * Math.PI;
+                const r = 0.5;
+                pts.push(new THREE.Vector3(r*Math.sin(v)*Math.cos(u), r*Math.cos(v), r*Math.sin(v)*Math.sin(u)));
+            }
+            for(let i=0; i<count*0.6; i++) {
+                const u = Math.random() * Math.PI * 2;
+                const r = 0.8 + Math.random() * 0.5;
+                pts.push(new THREE.Vector3(r*Math.cos(u), (Math.random()-0.5)*0.05, r*Math.sin(u)));
+            }
+            return pts;
+        }
+
+        function generateFlowerPoints(count) {
+             const pts = [];
+             for(let i=0; i<count; i++) {
+                const u = Math.random() * Math.PI * 2; 
+                const v = Math.random() * Math.PI;     
+                const petal = 1 + 0.5 * Math.sin(5 * u) * Math.sin(v);
+                pts.push(new THREE.Vector3(petal * Math.sin(v) * Math.cos(u) * 0.7, petal * Math.cos(v) * 0.7, petal * Math.sin(v) * Math.sin(u) * 0.7));
+             }
+             return pts;
+        }
+
+        function generateGalaxyPoints(count) {
+            const pts = [];
+            for(let i=0; i<count; i++) {
+                const armCount = 4;
+                const armIndex = i % armCount;
+                const radius = Math.random() * Math.random() * 2.0; 
+                const spinAngle = radius * 5.0; 
+                const armOffsetAngle = (armIndex / armCount) * Math.PI * 2;
+                const angle = spinAngle + armOffsetAngle + (Math.random() - 0.5) * 0.4;
+                
+                let tx = Math.cos(angle) * radius;
+                let ty = (Math.random() - 0.5) * 0.1 * (2.0 - radius);
+                let tz = Math.sin(angle) * radius;
+                pts.push(new THREE.Vector3(tx, ty, tz));
+            }
+            return pts;
+        }
+
+        function generateSpherePoints(count) {
+            const pts = [];
+            for(let i=0; i<count; i++) {
+                const u = Math.random() * Math.PI * 2;
+                const v = Math.acos((Math.random() * 2) - 1);
+                const r = 1.0 + (Math.random()-0.5)*0.1;
+                pts.push(new THREE.Vector3(r*Math.sin(v)*Math.cos(u), r*Math.sin(v)*Math.sin(u), r*Math.cos(v)));
+            }
+            return pts;
+        }
+
+        function generateCubePoints(count) {
+            const pts = [];
+            for(let i=0; i<count; i++) {
+                let x = Math.random() * 2 - 1;
+                let y = Math.random() * 2 - 1;
+                let z = Math.random() * 2 - 1;
+                const max = Math.max(Math.abs(x), Math.abs(y), Math.abs(z));
+                pts.push(new THREE.Vector3((x/max)*0.8, (y/max)*0.8, (z/max)*0.8));
+            }
+            return pts;
+        }
+
+        function generateTorusPoints(count) {
+            const pts = [];
+            const R = 0.8, r = 0.3;
+            for(let i=0; i<count; i++) {
+                const u = Math.random() * Math.PI * 2;
+                const v = Math.random() * Math.PI * 2;
+                // Add minor noise for organic look
+                const R_noise = R + (Math.random()-0.5)*0.05;
+                const x = (R_noise + r * Math.cos(v)) * Math.cos(u);
+                const y = (r + (Math.random()-0.5)*0.05) * Math.sin(v);
+                const z = (R_noise + r * Math.cos(v)) * Math.sin(u);
+                pts.push(new THREE.Vector3(x, y, z));
+            }
+            return pts;
+        }
+
+        function setParticleTemplate(template) {
+           let newTargets = [];
+           if(template === 'heart') newTargets = generateHeartPoints(NUM_PARTICLES);
+           else if(template === 'flower') newTargets = generateFlowerPoints(NUM_PARTICLES);
+           else if(template === 'saturn') newTargets = generateSaturnPoints(NUM_PARTICLES);
+           else if(template === 'galaxy') newTargets = generateGalaxyPoints(NUM_PARTICLES);
+           else if(template === 'sphere') newTargets = generateSpherePoints(NUM_PARTICLES);
+           else if(template === 'cube') newTargets = generateCubePoints(NUM_PARTICLES);
+           else if(template === 'torus') newTargets = generateTorusPoints(NUM_PARTICLES);
+           
+           targetPoints = newTargets;
+           for(let i=0; i<NUM_PARTICLES; i++) velocities[i].set((Math.random()-0.5)*0.5, (Math.random()-0.5)*0.5, (Math.random()-0.5)*0.5);
+        }
+
+        // True 1-Euro Filter Implementation for Ultra Smooth, zero-lag tracking
+        class OneEuroFilter {
+            constructor(minCutoff = 1.0, beta = 0.05, dCutoff = 1.0) {
+                this.minCutoff = minCutoff; this.beta = beta; this.dCutoff = dCutoff;
+                this.xPrev = null; this.dxPrev = 0; this.tPrev = null;
+            }
+            alpha(cutoff, dt) {
+                const tau = 1.0 / (2 * Math.PI * cutoff);
+                return 1.0 / (1.0 + tau / dt);
+            }
+            filter(x, t) {
+                if (this.xPrev === null) {
+                    this.xPrev = x; this.tPrev = t; return x;
+                }
+                const dt = (t - this.tPrev) / 1000.0;
+                if (dt <= 0) return x;
+                const dx = (x - this.xPrev) / dt;
+                const edx = this.alpha(this.dCutoff, dt) * dx + (1 - this.alpha(this.dCutoff, dt)) * this.dxPrev;
+                const cutoff = this.minCutoff + this.beta * Math.abs(edx);
+                const a = this.alpha(cutoff, dt);
+                const res = a * x + (1 - a) * this.xPrev;
+                this.xPrev = res; this.dxPrev = edx; this.tPrev = t;
+                return res;
+            }
+        }
+        
+        const filterX = new OneEuroFilter(1.0, 0.007); // Precision tuned for handwriting
+        const filterY = new OneEuroFilter(1.0, 0.007);
+
+        /* ================= 
+           INITIALIZATION
+           ================= */
+        function init() {
+            initThreeJS();
+            resize();
+            window.addEventListener('resize', resize);
+            setupUI();
+            setupMediaPipe();
+            requestAnimationFrame(renderLoop);
+        }
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            [canvasBg, canvasDraw, canvasUI].forEach(c => {
+                c.width = width; c.height = height;
+            });
+            if(threeCamera) {
+                threeCamera.aspect = width / height;
+                threeCamera.updateProjectionMatrix();
+                threeRenderer.setSize(width, height);
+            }
+        }
+
+        function setupUI() {
+            const sc = document.getElementById('swatchContainer');
+            colors.forEach(c => {
+                const s = document.createElement('div');
+                s.className = 'swatch' + (c === activeColor ? ' active' : '');
+                s.style.backgroundColor = c;
+                s.onclick = () => {
+                    document.querySelectorAll('.swatch').forEach(el => el.classList.remove('active'));
+                    s.classList.add('active');
+                    activeColor = c;
+                    s.style.color = c; // for the active glow
+                };
+                if(c === activeColor) s.style.color = c;
+                sc.appendChild(s);
+            });
+
+            document.getElementById('glowSlider').oninput = e => currentGlow = parseInt(e.target.value);
+            document.getElementById('sizeSlider').oninput = e => currentSize = parseInt(e.target.value);
+            
+            document.getElementById('toggleStrings').onclick = function() {
+                stringsMode = !stringsMode;
+                if(stringsMode) rubberMode = false;
+                updateUIVisibility();
+            };
+            
+            document.getElementById('toggleRubbers').onclick = function() {
+                rubberMode = !rubberMode;
+                if(rubberMode) stringsMode = false;
+                updateUIVisibility();
+            };
+
+            document.getElementById('toggleParticles').onclick = function() {
+                particlesMode = !particlesMode;
+                if(particlesMode) { stringsMode = false; rubberMode = false; }
+                updateUIVisibility();
+            };
+
+            function updateUIVisibility() {
+                const anyMode = stringsMode || rubberMode || particlesMode;
+                document.getElementById('toggleStrings').style.background = stringsMode ? 'rgba(255,255,255,0.1)' : 'var(--ui-bg)';
+                document.getElementById('toggleRubbers').style.background = rubberMode ? 'rgba(255,255,255,0.1)' : 'var(--ui-bg)';
+                document.getElementById('toggleParticles').style.background = particlesMode ? 'rgba(255,255,255,0.1)' : 'var(--ui-bg)';
+                
+                document.querySelector('.bottom-bar').style.display = anyMode ? 'none' : 'flex';
+                document.getElementById('canvasDraw').style.opacity = anyMode ? '0' : '1';
+                
+                document.getElementById('rubberColorContainer').style.display = rubberMode ? 'flex' : 'none';
+                document.getElementById('particleSettingsContainer').style.display = particlesMode ? 'flex' : 'none';
+                
+                const canvas3D = document.getElementById('canvas3D');
+                if (particlesMode) {
+                    canvas3D.style.display = 'block';
+                    // slight delay to allow display:block to apply before opacity transition
+                    requestAnimationFrame(() => canvas3D.style.opacity = '1');
+                } else {
+                    canvas3D.style.opacity = '0';
+                    setTimeout(() => { if (!particlesMode) canvas3D.style.display = 'none'; }, 300);
+                }
+                
+                if (anyMode) {
+                    document.getElementById('gestureStatus').style.display = 'none';
+                    if (rubberMode) initRubberAudio();
+                    else stopRubberAudio();
+                    
+                    if (particlesMode) initParticleAudio();
+                    else stopParticleAudio();
+                } else {
+                    stopRubberAudio();
+                    stopParticleAudio();
+                }
+            }
+            
+            document.querySelectorAll('.template-btn').forEach(btn => {
+                btn.onclick = function() {
+                    document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    setParticleTemplate(this.getAttribute('data-template'));
+                };
+            });
+            
+            document.getElementById('particleColorPicker').oninput = function() {
+                isMultiColor = false;
+                document.getElementById('multiColorBtn').style.background = 'var(--ui-bg)';
+                document.getElementById('multiColorBtn').style.boxShadow = 'none';
+                updateParticleColor();
+            };
+            
+            document.getElementById('multiColorBtn').onclick = function() {
+                isMultiColor = true;
+                this.style.background = 'rgba(255,255,255,0.2)';
+                this.style.boxShadow = '0 0 10px rgba(255,255,255,0.3)';
+                updateParticleColor();
+            };
+
+            document.getElementById('toggleMesh').onclick = function() {
+                showMesh = !showMesh;
+                this.style.background = showMesh ? 'rgba(255,255,255,0.1)' : 'var(--ui-bg)';
+            };
+            
+            document.getElementById('toggleCam').onclick = function() {
+                showCam = !showCam;
+                canvasBg.style.opacity = showCam ? '1.0' : '0.0';
+                this.querySelector('span').textContent = showCam ? 'Camera ON' : 'Camera OFF';
+                this.style.background = showCam ? 'rgba(255,255,255,0.1)' : 'var(--ui-bg)';
+                const dot = this.querySelector('.status-dot');
+                if(!showCam) { dot.style.background = '#ff4d4d'; dot.style.boxShadow = '0 0 8px #ff4d4d'; }
+                else { dot.style.background = '#39FF14'; dot.style.boxShadow = '0 0 8px #39FF14'; }
+            };
+
+            document.getElementById('btnUndo').onclick = () => strokes.pop();
+            document.getElementById('btnClear').onclick = () => strokes = [];
+            document.getElementById('btnSave').onclick = save;
+
+
+            // Keyboard binds
+            window.addEventListener('keydown', e => {
+                const k = e.key.toLowerCase();
+                if (k === 'z' || (e.metaKey && k === 'z')) strokes.pop(); 
+                if (k === 'c') { strokes = []; }
+                if (k === 's') save();
+            });
+        }
+
+        let handResults = null, faceResults = null;
+        async function setupMediaPipe() {
+            const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+            hands.setOptions({ 
+                maxNumHands: 2, // Allowed 2 hands for rubber band feature
+                modelComplexity: 1, 
+                minDetectionConfidence: 0.7, 
+                minTrackingConfidence: 0.7 
+            });
+            hands.onResults(r => handResults = r);
+
+            const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
+            faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6 });
+            faceMesh.onResults(r => faceResults = r);
+
+            const camera = new Camera(video, {
+                onFrame: async () => {
+                    await hands.send({image: video});
+                    await faceMesh.send({image: video});
+                },
+                width: 1920, height: 1080
+            });
+            camera.start();
+        }
+
+        /* ================= 
+           GESTURE & LOGIC
+           ================= */
+        const getDist3D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0));
+
+        // Evaluate true physical curvature of the finger 
+        function isFingerStraight(lm, mcp, pip, dip, tip) {
+            const b1 = getDist3D(lm[mcp], lm[pip]);
+            const b2 = getDist3D(lm[pip], lm[dip]);
+            const b3 = getDist3D(lm[dip], lm[tip]);
+            const straightLen = getDist3D(lm[mcp], lm[tip]);
+            // Re-tuned to 0.82 to allow a natural relaxed curve without dropping the stroke
+            return (straightLen / (b1 + b2 + b3)) > 0.82; 
+        }
+
+        function analyzeGesture(landmarks) {
+            const palmLen = getDist3D(landmarks[0], landmarks[9]); // Wrist to middle MCP
+            
+            const indexExtended = isFingerStraight(landmarks, 5, 6, 7, 8);
+            const middleExtended = isFingerStraight(landmarks, 9, 10, 11, 12);
+            const ringExtended = isFingerStraight(landmarks, 13, 14, 15, 16);
+            const pinkyExtended = isFingerStraight(landmarks, 17, 18, 19, 20);
+
+            const pinchDist = getDist3D(landmarks[4], landmarks[8]) / palmLen;
+            const isPinching = pinchDist < 0.25 && !middleExtended && !ringExtended;
+            
+            const isOpenPalm = indexExtended && middleExtended && ringExtended && pinkyExtended;
+
+            if (isPinching) return 'move';
+            if (isOpenPalm) return 'erase';
+            
+            // Strictly require ONLY the index finger (☝🏻) to be perfectly straight
+            if (indexExtended && !middleExtended && !ringExtended && !pinkyExtended) return 'draw';
+            
+            return 'idle'; 
+        }
+
+        function updateStatusUI(gesture) {
+            if (gesture === 'draw') {
+                gestureStatus.style.display = 'none';
+            } else {
+                gestureStatus.style.display = 'flex';
+                gestureStatus.style.color = gesture === 'erase' ? '#FF69B4' : gesture === 'move' ? '#00FFFF' : '#ffffff';
+                gestureStatus.querySelector('.status-text').innerText = 
+                    gesture === 'erase' ? 'ERASING' : gesture === 'move' ? 'MOVING' : 'IDLE';
+            }
+        }
+
+        // Instant-start, 1-frame debounce exit to prevent connecting lines while writing alphabets
+        let lastRawGesture = 'idle';
+        function getStableGesture(newGesture) {
+            // Instant start for drawing
+            if (newGesture === 'draw' && currentGesture !== 'draw') return 'draw';
+            
+            // 1-frame debounce for letting go (prevent random stroke breaks from minor AI glitch)
+            if (currentGesture === 'draw' && newGesture !== 'draw') {
+                if (lastRawGesture !== 'draw' && newGesture === lastRawGesture) {
+                    return newGesture; // Confirmed non-draw for 2 frames, let go!
+                } else {
+                    lastRawGesture = newGesture;
+                    return 'draw'; // Hold drawing just 1 extra tracking frame
+                }
+            }
+            lastRawGesture = newGesture;
+            return newGesture;
+        }
+
+        let brush = {x: 0, y: 0};
+        const STABILIZATION = 2; // Reduced back to near-raw 1:1 tracking for absolute finger fidelity
+
+        function handleInteraction(landmarks) {
+            const now = performance.now();
+            // Apply temporal smoothing via 1-Euro
+            const rawX = (1 - landmarks[8].x) * width; // Mirror X
+            const rawY = landmarks[8].y * height;
+            
+            const x = filterX.filter(rawX, now);
+            const y = filterY.filter(rawY, now);
+
+            const rawGesture = analyzeGesture(landmarks);
+            const newGesture = getStableGesture(rawGesture);
+
+            if(newGesture !== currentGesture) {
+                currentGesture = newGesture;
+                updateStatusUI(currentGesture);
+                currentPath = null;
+                isGrabbing = false;
+            }
+
+            if (currentGesture === 'draw') {
+                if (!currentPath) {
+                    brush = {x: x, y: y};
+                    currentPath = { points: [{x, y}], color: activeColor, glow: currentGlow, size: currentSize };
+                    strokes.push(currentPath);
+                } else {
+                    const dx = x - brush.x;
+                    const dy = y - brush.y;
+                    const dist = Math.hypot(dx, dy);
+                    
+                    // Pull String logic: Absorb hand micro-tremors under pixel radius
+                    if (dist > STABILIZATION) {
+                        brush.x += (dx / dist) * (dist - STABILIZATION);
+                        brush.y += (dy / dist) * (dist - STABILIZATION);
+                        
+                        const pts = currentPath.points;
+                        if (Math.hypot(brush.x - pts[pts.length-1].x, brush.y - pts[pts.length-1].y) > 1.5) {
+                            pts.push({x: brush.x, y: brush.y});
+                        }
+                    }
+                }
+            } else if (currentGesture === 'erase') {
+                // Erase using palm center
+                const palmX = (1 - landmarks[9].x) * width;
+                const palmY = landmarks[9].y * height;
+                eraseAt(palmX, palmY);
+            } else if (currentGesture === 'move') {
+                if (!isGrabbing) { grabX = x; grabY = y; isGrabbing = true; } 
+                else {
+                    const dx = x - grabX; const dy = y - grabY;
+                    strokes.forEach(s => s.points.forEach(p => { p.x += dx; p.y += dy; }));
+                    grabX = x; grabY = y;
+                }
+            }
+            
+            renderUICursor(landmarks, x, y, currentGesture);
+        }
+
+        // Advanced Eraser: Splits strokes instead of deleting whole points
+        function eraseAt(ex, ey) {
+            const rad = 50;
+            const splitStrokes = [];
+            strokes.forEach(s => {
+                let currentNew = null;
+                for (let i = 0; i < s.points.length; i++) {
+                    const p = s.points[i];
+                    if (Math.hypot(p.x - ex, p.y - ey) > rad) {
+                        if (!currentNew) {
+                            currentNew = { points: [], color: s.color, glow: s.glow, size: s.size };
+                            splitStrokes.push(currentNew);
+                        }
+                        currentNew.points.push(p);
+                    } else {
+                        currentNew = null; // Break path
+                    }
+                }
+            });
+            // Keep valid paths
+            strokes = splitStrokes.filter(s => s.points.length > 2);
+        }
+
+        /* ================= 
+           RENDERING
+           ================= */
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let isMouseDown = false;
+        let hasMouseMoved = false;
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX; mouseY = e.clientY; hasMouseMoved = true;
+        });
+        window.addEventListener('mousedown', () => isMouseDown = true);
+        window.addEventListener('mouseup', () => isMouseDown = false);
+        window.addEventListener('touchstart', (e) => { isMouseDown = true; mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; hasMouseMoved = true; });
+        window.addEventListener('touchend', () => isMouseDown = false);
+        window.addEventListener('touchmove', (e) => { mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; });
+
+        function renderLoop() {
+            // Background Layer
+            if (showCam) {
+                bgCtx.save();
+                bgCtx.clearRect(0, 0, width, height);
+                // Mirror the native video feed horizontally 
+                bgCtx.translate(width, 0);
+                bgCtx.scale(-1, 1);
+                bgCtx.drawImage(video, 0, 0, width, height); // Native feed
+                bgCtx.restore();
+            }
+
+            // Draw Layer (Vector Art)
+            drawCtx.clearRect(0, 0, width, height);
+            if (!stringsMode && !rubberMode && !particlesMode) {
+                drawStrokes();
+            }
+
+            // UI Layer (Mesh & Cursors)
+            uiCtx.clearRect(0, 0, width, height);
+            
+            if (handResults && handResults.multiHandLandmarks) {
+                if (handResults.multiHandLandmarks.length === 2) {
+                    if (stringsMode) drawRubberBands(handResults.multiHandLandmarks[0], handResults.multiHandLandmarks[1]);
+                    if (rubberMode) drawRealisticRubbers(handResults.multiHandLandmarks[0], handResults.multiHandLandmarks[1]);
+                } else if (stringsMode || rubberMode) {
+                    stopRubberAudio();
+                }
+
+                handResults.multiHandLandmarks.forEach((landmarks, idx) => {
+                    if (!stringsMode && !rubberMode && !particlesMode) {
+                        renderHandMesh(landmarks);
+                        if (idx === 0) handleInteraction(landmarks);
+                    }
+                });
+            } else if (stringsMode || rubberMode) {
+                stopRubberAudio();
+            }
+
+            if (faceResults && faceResults.multiFaceLandmarks && showMesh) {
+                renderFaceMesh(faceResults.multiFaceLandmarks[0]);
+            }
+            
+            // --- 3D Particle System Real-time Update ---
+            if(particlesMode && particleSystem) {
+                let hasControlSource = false;
+                let activeX = 0, activeY = 0, activeHandsDist = 0, activeOpenness = 1;
+
+                if(handResults && handResults.multiHandLandmarks && handResults.multiHandLandmarks.length === 2) {
+                    const h1 = handResults.multiHandLandmarks[0];
+                    const h2 = handResults.multiHandLandmarks[1];
+                    const cx1 = (1 - h1[9].x); const cy1 = h1[9].y;
+                    const cx2 = (1 - h2[9].x); const cy2 = h2[9].y;
+                    
+                    activeX = ((cx1 + cx2)/2 - 0.5) * 8; 
+                    activeY = -((cy1 + cy2)/2 - 0.5) * 8;
+                    activeHandsDist = Math.hypot(cx2 - cx1, cy2 - cy1);
+                    
+                    const getD = (a,b) => Math.hypot(a.x-b.x, a.y-b.y, (a.z||0)-(b.z||0));
+                    activeOpenness = (getD(h1[0], h1[12]) + getD(h2[0], h2[12])) / 2;
+                    hasControlSource = true;
+                } else if (hasMouseMoved) {
+                    activeX = (mouseX / width - 0.5) * 12; // Adjust scalar for wider screen tracking
+                    activeY = -(mouseY / height - 0.5) * 12;
+                    activeHandsDist = isMouseDown ? 0.05 : 0.35; // Click simulates closed hands (explosion)
+                    activeOpenness = isMouseDown ? 0.2 : 0.7; // Click simulates clenching fists
+                    hasControlSource = true;
+                }
+
+                if(hasControlSource) {
+                    const centerX = activeX;
+                    const centerY = activeY;
+                    const handsDist = activeHandsDist;
+                    const combinedOpenness = activeOpenness;
+                    const globalScale = 0.5 + handsDist * 5.0; // Restored dynamic zoom
+                    
+                    // Dispersion (noise) increases exponentially as hands close 
+                    const dispersion = Math.max(0, 0.45 - combinedOpenness) * 40.0;
+                    
+                    // Velocities for dynamic interactions
+                    const handVelX = centerX - prevCenterX;
+                    const handVelY = centerY - prevCenterY;
+                    const distVelocity = handsDist - prevHandsDist;
+                    const handSpeed = Math.hypot(handVelX, handVelY);
+                    
+                    // --- 1. SUPERNOVA CLAP DETECTOR ---
+                    // Rapidly collapsing hands triggers an explosive cinematic shockwave
+                    if (distVelocity < -0.15 && handsDist < 0.25 && explosionState < 0.1) {
+                        explosionState = 1.0; 
+                    }
+                    
+                    explosionState *= 0.94; // Decay shockwave
+                    const superNovaForce = explosionState * 20.0;
+                    
+                    const rapidSpin = Math.max(0, 0.45 - combinedOpenness) * 0.25 + (handSpeed * 0.1);
+                    
+                    // Render Particle Rotations
+                    const baseSpin = 0.005;
+                    particleSystem.rotation.y += baseSpin + rapidSpin;
+                    particleSystem.rotation.x += (baseSpin + rapidSpin) * 0.5;
+
+                    // Update trailing values
+                    prevCenterX = centerX; prevCenterY = centerY; prevHandsDist = handsDist;
+
+                    particleSystem.position.set(centerX, centerY, 0);
+                    const positions = particleSystem.geometry.attributes.position.array;
+                    
+                    const time = performance.now() * 0.001;
+                    if(particleSystem.material.uniforms) {
+                        particleSystem.material.uniforms.time.value = time;
+                    }
+                    
+                    for(let i=0; i<NUM_PARTICLES; i++) {
+                        const target = targetPoints[i];
+                        const current = currentPoints[i];
+                        const vel = velocities[i];
+                        
+                        // --- 2. COMPLEX FLUID NOISE TRAILS ---
+                        // Inject organic 3D fluid curling when moving hands quickly
+                        const fluidX = Math.sin(current.y * 5.0 + time * 3.0) * handSpeed * 0.08;
+                        const fluidY = Math.cos(current.z * 5.0 + time * 3.0) * handSpeed * 0.08;
+                        const fluidZ = Math.sin(current.x * 5.0 + time * 3.0) * handSpeed * 0.08;
+                        
+                        let tx = (target.x * globalScale) + (Math.random()-0.5) * dispersion;
+                        let ty = (target.y * globalScale) + (Math.random()-0.5) * dispersion;
+                        let tz = (target.z * globalScale) + (Math.random()-0.5) * dispersion;
+                        
+                        // Normal smooth physics
+                        const spring = dispersion > 2.0 ? 0.08 : 0.03;  
+                        const damp = 0.90; 
+                        
+                        vel.x += (tx - current.x) * spring + fluidX;
+                        vel.y += (ty - current.y) * spring + fluidY;
+                        vel.z += (tz - current.z) * spring + fluidZ;
+                        
+                        // --- 3. SUPERNOVA SHOCKWAVE PHYSICS ---
+                        if (superNovaForce > 0.5) {
+                            const vx = current.x - centerX;
+                            const vy = current.y - centerY;
+                            const dist = Math.max(0.1, Math.hypot(vx, vy, current.z));
+                            vel.x += (vx / dist) * superNovaForce * (Math.random() * 0.5 + 0.5);
+                            vel.y += (vy / dist) * superNovaForce * (Math.random() * 0.5 + 0.5);
+                            vel.z += (current.z / dist) * superNovaForce * (Math.random() * 0.5 + 0.5);
+                        }
+                        
+                        vel.multiplyScalar(damp);
+                        current.add(vel);
+                        
+                        positions[i*3] = current.x;
+                        positions[i*3+1] = current.y;
+                        positions[i*3+2] = current.z;
+                    }
+                    
+                    particleSystem.geometry.attributes.position.needsUpdate = true;
+                } else {
+                    // IDLE STATE: Gently orbit and float back to the center of space when hands are removed
+                    particleSystem.rotation.y += 0.002;
+                    particleSystem.rotation.x += 0.001;
+                    const positions = particleSystem.geometry.attributes.position.array;
+                    const time = performance.now() * 0.001;
+                    
+                    if(particleSystem.material.uniforms) particleSystem.material.uniforms.time.value = time;
+                    
+                    for(let i=0; i<NUM_PARTICLES; i++) {
+                        const target = targetPoints[i];
+                        const current = currentPoints[i];
+                        const vel = velocities[i];
+                        
+                        let tx = target.x * globalScale;
+                        let ty = target.y * globalScale;
+                        let tz = target.z * globalScale;
+                        
+                        const spring = 0.015; // Smooth relaxed spring
+                        vel.x += (tx - current.x) * spring;
+                        vel.y += (ty - current.y) * spring;
+                        vel.z += (tz - current.z) * spring;
+                        vel.multiplyScalar(0.92); // More friction so it settles softly
+                        current.add(vel);
+                        
+                        positions[i*3] = current.x;
+                        positions[i*3+1] = current.y;
+                        positions[i*3+2] = current.z;
+                    }
+                    // Drift smoothly back to screen center
+                    particleSystem.position.x += (0 - particleSystem.position.x) * 0.05;
+                    particleSystem.position.y += (0 - particleSystem.position.y) * 0.05;
+                    particleSystem.geometry.attributes.position.needsUpdate = true;
+                }
+                
+                threeRenderer.render(threeScene, threeCamera);
+            } else if (typeof threeRenderer !== 'undefined' && threeRenderer != null) {
+                // Ensure WebGL framebuffer is completely wiped when particles are turned off to prevent freezing/ghosting
+                threeRenderer.clear();
+            }
+            
+            requestAnimationFrame(renderLoop);
+        }
+
+        // Beautiful Spline Rendering
+        function drawStrokes() {
+            strokes.forEach(s => {
+                if (s.points.length < 2) return;
+                
+                const drawLine = (alpha, glowMultiplier, lineWidth) => {
+                    drawCtx.beginPath();
+                    drawCtx.lineCap = 'round';
+                    drawCtx.lineJoin = 'round';
+                    drawCtx.lineWidth = lineWidth;
+                    drawCtx.strokeStyle = s.color;
+                    drawCtx.globalAlpha = alpha;
+                    drawCtx.shadowBlur = (s.glow / 100) * 80 * glowMultiplier;
+                    drawCtx.shadowColor = s.color;
+
+                    const pts = s.points;
+                    drawCtx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) {
+                        drawCtx.lineTo(pts[i].x, pts[i].y);
+                    }
+                    drawCtx.stroke();
+                };
+
+                // Bloom Pass
+                drawLine(0.2, 0.8, s.size * 2.5);
+                // Core Pass
+                drawLine(1.0, 0.0, s.size);
+            });
+        }
+
+        function renderUICursor(landmarks, x, y, gesture) {
+            uiCtx.save();
+            switch(gesture) {
+                case 'draw':
+                    uiCtx.beginPath(); uiCtx.arc(x, y, 10, 0, Math.PI*2);
+                    uiCtx.strokeStyle = 'rgba(255,255,255,0.8)'; uiCtx.lineWidth = 1; uiCtx.stroke();
+                    uiCtx.beginPath(); uiCtx.arc(x, y, currentSize/2, 0, Math.PI*2);
+                    uiCtx.fillStyle = activeColor; 
+                    uiCtx.shadowBlur = 10; uiCtx.shadowColor = activeColor;
+                    uiCtx.fill();
+                    break;
+                case 'erase':
+                    const palmX = (1 - landmarks[9].x) * width;
+                    const palmY = landmarks[9].y * height;
+                    uiCtx.beginPath(); uiCtx.arc(palmX, palmY, 50, 0, Math.PI*2);
+                    uiCtx.fillStyle = 'rgba(255, 105, 180, 0.15)'; uiCtx.fill();
+                    uiCtx.strokeStyle = 'rgba(255, 105, 180, 0.8)'; uiCtx.lineWidth = 2; uiCtx.stroke();
+                    break;
+                case 'move':
+                    uiCtx.beginPath(); uiCtx.arc(x, y, 14, 0, Math.PI*2);
+                    uiCtx.fillStyle = 'rgba(0, 255, 255, 0.3)'; uiCtx.fill();
+                    uiCtx.strokeStyle = '#00FFFF'; uiCtx.lineWidth = 1.5; uiCtx.stroke();
+                    break;
+                case 'idle':
+                    const wristX = (1 - landmarks[0].x) * width;
+                    const wristY = landmarks[0].y * height;
+                    uiCtx.beginPath(); uiCtx.arc(wristX, wristY, 8, 0, Math.PI*2);
+                    uiCtx.fillStyle = 'rgba(255,255,255,0.5)'; uiCtx.fill();
+                    break;
+            }
+            uiCtx.restore();
+        }
+
+        function drawRubberBands(hand1, hand2) {
+            uiCtx.save();
+            uiCtx.globalCompositeOperation = 'screen';
+            
+            // Get center distance for audio & global tension
+            const MathHypot = Math.hypot;
+            const cx1 = (1 - hand1[9].x) * width;
+            const cy1 = hand1[9].y * height;
+            const cx2 = (1 - hand2[9].x) * width;
+            const cy2 = hand2[9].y * height;
+            const centerDist = MathHypot(cx2 - cx1, cy2 - cy1);
+            const globalTension = Math.min(1, centerDist / width);
+            
+            // Update audio representation (Authentic Rubber Creak)
+            if (audioCtx && stretchGain) {
+                const velocity = centerDist - lastStretchDist;
+                
+                // Creak clicking rate (freq of sawtooth). Capped at 30Hz so it remains a rapid click track, not a buzz.
+                const clickRate = Math.min(30, 2 + Math.abs(velocity * 0.8));
+                stretchOsc.frequency.setTargetAtTime(clickRate, audioCtx.currentTime, 0.05);
+                
+                // Thicken or lighten the rubber tone using lowpass cutoff
+                const baseTone = 300 + (globalTension * 800);
+                frictionFilter.frequency.setTargetAtTime(baseTone, audioCtx.currentTime, 0.05);
+                
+                // Sound only plays when hands are moving AWAY from each other (stretching)
+                const isStretching = velocity > 1.5;
+                const targetGain = isStretching ? Math.min(0.5, (velocity * 0.03) + (globalTension * 0.1)) : 0;
+                
+                stretchGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
+                lastStretchDist = centerDist;
+            }
+
+            // 1. Draw glowing multi-color tracking points clearly on BOTH hands
+            for (let i = 0; i < 21; i++) {
+                const h1x = (1 - hand1[i].x) * width;
+                const h1y = hand1[i].y * height;
+                const h2x = (1 - hand2[i].x) * width;
+                const h2y = hand2[i].y * height;
+                
+                const ptHue = (i * (360 / 21)); // Full spectrum across the hand
+                
+                uiCtx.beginPath();
+                uiCtx.arc(h1x, h1y, 4, 0, Math.PI*2);
+                uiCtx.fillStyle = `hsl(${ptHue}, 100%, 70%)`;
+                uiCtx.shadowBlur = 10;
+                uiCtx.shadowColor = `hsl(${ptHue}, 100%, 50%)`;
+                uiCtx.fill();
+                
+                uiCtx.beginPath();
+                uiCtx.arc(h2x, h2y, 4, 0, Math.PI*2);
+                uiCtx.fill();
+            }
+
+            uiCtx.shadowBlur = 0;
+            
+            // 2. Connect specific core joints (base, mid, tips) to create a clean, elegant web instead of a chaotic mess
+            const coreNodes = [0, 5, 9, 13, 17, 4, 8, 12, 16, 20]; // Wrists, knuckles, and fingertips (~100 lines total instead of 441)
+            for (let i = 0; i < coreNodes.length; i++) {
+                for (let j = 0; j < coreNodes.length; j++) {
+                    const p1 = hand1[coreNodes[i]];
+                    const p2 = hand2[coreNodes[j]];
+                    
+                    const x1 = (1 - p1.x) * width;
+                    const y1 = p1.y * height;
+                    const x2 = (1 - p2.x) * width;
+                    const y2 = p2.y * height;
+                    
+                    const dist = MathHypot(x2 - x1, y2 - y1);
+                    const tension = Math.min(1, dist / width);
+                    
+                    // Generate vivid multiple colors combination
+                    const hue = (coreNodes[i] * 15 + coreNodes[j] * 15 + globalTension * 300) % 360;
+                    const alpha = Math.max(0.02, 0.2 - (tension * 0.15)); // Higher alpha since fewer strings
+                    
+                    uiCtx.strokeStyle = `hsla(${hue}, 100%, 65%, ${alpha})`;
+                    uiCtx.lineWidth = 1;
+                    
+                    // Draw vibrating strands
+                    const vibration = tension * 10;
+                    for(let k = 0; k < 2; k++) {
+                        uiCtx.beginPath();
+                        uiCtx.moveTo(x1 + (Math.random()-0.5)*vibration, y1 + (Math.random()-0.5)*vibration);
+                        uiCtx.lineTo(x2 + (Math.random()-0.5)*vibration, y2 + (Math.random()-0.5)*vibration);
+                        uiCtx.stroke();
+                    }
+                }
+            }
+            
+            // 3. Bright solid cores for the fingertips
+            const fingertips = [4, 8, 12, 16, 20];
+            for (let i = 0; i < fingertips.length; i++) {
+                const p1 = hand1[fingertips[i]];
+                const p2 = hand2[fingertips[i]];
+                
+                const x1 = (1 - p1.x) * width;
+                const y1 = p1.y * height;
+                const x2 = (1 - p2.x) * width;
+                const y2 = p2.y * height;
+                
+                const coreHue = (fingertips[i] * (360/21));
+                uiCtx.beginPath();
+                uiCtx.moveTo(x1, y1);
+                uiCtx.lineTo(x2, y2);
+                uiCtx.strokeStyle = `hsla(${coreHue}, 100%, 80%, 0.9)`;
+                uiCtx.lineWidth = 2;
+                uiCtx.shadowBlur = 15;
+                uiCtx.shadowColor = `hsl(${coreHue}, 100%, 50%)`;
+                uiCtx.stroke();
+            }
+            
+            uiCtx.restore();
+        }
+
+        function drawRealisticRubbers(hand1, hand2) {
+            uiCtx.save();
+            
+            // Generate Realistic Physical Elastic Tension (Audio overlaps with standard string function logic)
+            const cx1 = (1 - hand1[9].x) * width; const cy1 = hand1[9].y * height;
+            const cx2 = (1 - hand2[9].x) * width; const cy2 = hand2[9].y * height;
+            const centerDist = Math.hypot(cx2 - cx1, cy2 - cy1);
+            const globalTension = Math.min(1, centerDist / width);
+            
+            if (audioCtx && stretchGain) {
+                const velocity = centerDist - lastStretchDist;
+                const clickRate = Math.min(30, 2 + Math.abs(velocity * 0.8));
+                stretchOsc.frequency.setTargetAtTime(clickRate, audioCtx.currentTime, 0.05);
+                frictionFilter.frequency.setTargetAtTime(300 + globalTension * 800, audioCtx.currentTime, 0.05);
+                const isStretching = velocity > 1.5;
+                const targetGain = isStretching ? Math.min(0.6, (velocity * 0.04) + (globalTension * 0.15)) : 0;
+                stretchGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
+                lastStretchDist = centerDist;
+            }
+
+            const pointsToConnect = [4, 8, 12, 16, 20, 3, 7, 11, 15, 19]; 
+            const colorSelection = document.getElementById('rubberColorPicker').value;
+            
+            const time = performance.now() * 0.005;
+            
+            // Draw the realistic physical rubber bands (drawn as physical skipping ropes)
+            for (let i = 0; i < pointsToConnect.length; i++) {
+                const pt = pointsToConnect[i];
+                const p1 = hand1[pt];
+                const p2 = hand2[pt];
+                
+                const x1 = (1 - p1.x) * width;
+                const y1 = p1.y * height;
+                const x2 = (1 - p2.x) * width;
+                const y2 = p2.y * height;
+                
+                const dist = Math.hypot(x2 - x1, y2 - y1);
+                const tension = Math.min(1, dist / (width * 0.5)); 
+                
+                // Realistic Thickness
+                const thickness = Math.max(3, 15 - (tension * 10));
+                
+                // Gap between the two strands of the loop
+                const loopGap = Math.max(1, 12 * (1 - tension));
+                
+                // Rolling Skipping Rope logic
+                const sagAmount = Math.max(0, (1.0 - tension) * 150.0);
+                const rollSpeed = time * 2.0;
+                // Add extreme swirl when rolling hands (swirl based on hand angle changes)
+                const angle = Math.atan2(y2 - y1, x2 - x1);
+                const swirlX = Math.sin(rollSpeed + i) * sagAmount * Math.sin(angle);
+                const swirlY = Math.cos(rollSpeed + i) * sagAmount + (sagAmount * 0.5); 
+                
+                const cpY1 = (y1 + y2) / 2 + swirlY;
+                const cpY2 = (y1 + y2) / 2 + swirlY * 0.7;
+                const cpX1 = (x1 + x2) / 2 + swirlX;
+                const cpX2 = (x1 + x2) / 2 - swirlX;
+                
+                // Render chosen colors
+                let r, g, b;
+                if (colorSelection === 'rainbow') {
+                    const rbColors = [
+                        {r: 230, g: 180, b: 80},  // Natural Amber
+                        {r: 255, g: 59, b: 48},   // Red
+                        {r: 52, g: 199, b: 89},   // Green
+                        {r: 0, g: 122, b: 255},   // Blue
+                        {r: 255, g: 204, b: 204}  // Pink
+                    ];
+                    const c = rbColors[i % rbColors.length];
+                    r = c.r; g = c.g; b = c.b;
+                } else {
+                    const hex = colorSelection.replace('#', '');
+                    r = parseInt(hex.substring(0, 2), 16);
+                    g = parseInt(hex.substring(2, 4), 16);
+                    b = parseInt(hex.substring(4, 6), 16);
+                }
+                const alpha = Math.max(0.6, 1.0 - tension * 0.3);
+                
+                uiCtx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                uiCtx.lineWidth = thickness;
+                uiCtx.lineCap = 'round';
+                
+                // Back Strand (lower side of the loop)
+                uiCtx.beginPath();
+                uiCtx.moveTo(x1, y1 - loopGap);
+                uiCtx.quadraticCurveTo(cpX1, cpY1, x2, y2 - loopGap);
+                uiCtx.shadowBlur = 5;
+                uiCtx.shadowColor = `rgba(0,0,0,0.3)`;
+                uiCtx.stroke();
+                
+                // Front Strand (upper side of the loop)
+                uiCtx.beginPath();
+                uiCtx.moveTo(x1, y1 + loopGap);
+                uiCtx.quadraticCurveTo(cpX2, cpY2, x2, y2 + loopGap);
+                uiCtx.shadowBlur = 10;
+                uiCtx.stroke();
+            }
+            
+            // vividly draw the connection points ON TOP of the loops to make it look securely pegged
+            for (let i = 0; i < pointsToConnect.length; i++) {
+                const pt = pointsToConnect[i];
+                const x1 = (1 - hand1[pt].x) * width;
+                const y1 = hand1[pt].y * height;
+                const x2 = (1 - hand2[pt].x) * width;
+                const y2 = hand2[pt].y * height;
+                
+                uiCtx.beginPath();
+                uiCtx.arc(x1, y1, 5, 0, Math.PI * 2);
+                uiCtx.fillStyle = '#ffcc66';
+                uiCtx.shadowBlur = 10;
+                uiCtx.shadowColor = 'rgba(0,0,0,0.6)';
+                uiCtx.fill();
+                
+                uiCtx.beginPath();
+                uiCtx.arc(x2, y2, 5, 0, Math.PI * 2);
+                uiCtx.fill();
+            }
+            
+            uiCtx.restore();
+        }
+
+        function renderHandMesh(landmarks) {
+            uiCtx.save();
+            uiCtx.beginPath(); 
+            uiCtx.lineWidth = 0.5; 
+            uiCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            const HAND_CONNECTIONS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+            HAND_CONNECTIONS.forEach(([a, b]) => {
+                uiCtx.moveTo((1 - landmarks[a].x) * width, landmarks[a].y * height);
+                uiCtx.lineTo((1 - landmarks[b].x) * width, landmarks[b].y * height);
+            });
+            uiCtx.stroke();
+
+            landmarks.forEach((lm, i) => {
+                const lx = (1 - lm.x) * width;
+                const ly = lm.y * height;
+                const isTip = [4, 8, 12, 16, 20].includes(i);
+                uiCtx.beginPath(); 
+                uiCtx.arc(lx, ly, isTip ? 2 : 1, 0, Math.PI * 2);
+                uiCtx.fillStyle = isTip ? 'rgba(255,255,255,0.8)' : 'rgba(255, 255, 255, 0.3)';
+                uiCtx.fill(); 
+            });
+            uiCtx.restore();
+        }
+
+        function renderFaceMesh(landmarks) {
+            const key = [33, 263, 1, 61, 291, 199, 4, 152, 10, 164];
+            uiCtx.save();
+            landmarks.forEach((lm, i) => {
+                if(!key.includes(i)) return;
+                uiCtx.beginPath(); uiCtx.arc((1 - lm.x) * width, lm.y * height, 1, 0, Math.PI * 2);
+                uiCtx.fillStyle = 'rgba(0, 240, 255, 0.4)'; uiCtx.fill();
+            });
+            uiCtx.restore();
+        }
+
+        function save() {
+            const off = document.createElement('canvas'); 
+            off.width = width; off.height = height;
+            const octx = off.getContext('2d'); 
+            octx.fillStyle = '#000000'; octx.fillRect(0, 0, width, height);
+            octx.drawImage(canvasDraw, 0, 0); 
+            // Do not export the UI canvas to keep it clean
+            const link = document.createElement('a');
+            link.download = `Gesture_${Date.now()}.png`; 
+            link.href = off.toDataURL('image/png'); 
+            link.click();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
