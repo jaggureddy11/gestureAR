@@ -934,45 +934,10 @@
         let stringsMode = false;
         let rubberMode = false;
 
-        // Audio for string stretch
+        // Global Audio Context
         let audioCtx = null;
-        let stretchOsc = null;
-        let stretchGain = null;
-        let frictionFilter = null;
-        let lastStretchDist = 0;
 
-        function initRubberAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            
-            if (!stretchOsc) {
-                // Triangle provides slightly richer harmonics for a 'thick' rubber ththud
-                stretchOsc = audioCtx.createOscillator();
-                stretchOsc.type = 'triangle';
 
-                // Core low-frequency filtering at 180Hz for a deep chest-thumping sound
-                frictionFilter = audioCtx.createBiquadFilter();
-                frictionFilter.type = 'lowpass';
-                frictionFilter.frequency.value = 180;
-
-                stretchGain = audioCtx.createGain();
-                stretchGain.gain.value = 0;
-
-                stretchOsc.connect(frictionFilter);
-                frictionFilter.connect(stretchGain);
-                stretchGain.connect(audioCtx.destination);
-
-                stretchOsc.start();
-            }
-        }
-
-        function stopRubberAudio() {
-            if (audioCtx && stretchGain) {
-                stretchGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
-            }
-        }
 
         // Premium default colors
         const colors = ['#00FFFF', '#FF00FF', '#39FF14', '#0D6EFD', '#FF69B4', '#FFD700', '#ffffff'];
@@ -1349,13 +1314,9 @@
 
                 if (anyMode) {
                     document.getElementById('gestureStatus').style.display = 'none';
-                    if (rubberMode) initRubberAudio();
-                    else stopRubberAudio();
-
                     if (particlesMode) initParticleAudio();
                     else stopParticleAudio();
                 } else {
-                    stopRubberAudio();
                     stopParticleAudio();
                 }
             }
@@ -1988,23 +1949,6 @@
             const cx2 = (1 - hand2[9].x) * width; const cy2 = hand2[9].y * height;
             const centerDist = Math.hypot(cx2 - cx1, cy2 - cy1);
             const globalTension = Math.min(1, centerDist / width);
-
-            if (audioCtx && stretchGain) {
-                const velocity = centerDist - lastStretchDist;
-                // Deeper tension-bound frequency (35Hz to 110Hz)
-                const tensionFreq = 35 + (globalTension * 75); 
-                const activityIntensity = Math.abs(velocity * 0.4);
-                
-                stretchOsc.frequency.setTargetAtTime(tensionFreq + activityIntensity, audioCtx.currentTime, 0.05);
-                frictionFilter.frequency.setTargetAtTime(120 + globalTension * 150, audioCtx.currentTime, 0.05);
-                
-                // Only play sound when actively moving or under extreme tension
-                const isActive = Math.abs(velocity) > 0.8 || globalTension > 0.6;
-                const volume = isActive ? Math.min(0.4, (Math.abs(velocity) * 0.02) + (globalTension * 0.12)) : 0;
-                
-                stretchGain.gain.setTargetAtTime(volume, audioCtx.currentTime, 0.15);
-                lastStretchDist = centerDist;
-            }
 
             const pointsToConnect = [4, 8, 12, 16, 20, 3, 7, 11, 15, 19];
             const colorSelection = document.getElementById('rubberColorPicker').value;
