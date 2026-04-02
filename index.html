@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gesture</title>
+    <title>GESTURE</title>
     <!-- Modern Typeface -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     
@@ -393,18 +393,20 @@
             display: flex; align-items: center; justify-content: center;
             transition: all 1.2s cubic-bezier(0.19, 1, 0.22, 1);
             font-family: 'Outfit', sans-serif;
+            padding: 24px;
+            box-sizing: border-box;
         }
 
         .intro-card {
             text-align: center;
-            display: flex; flex-direction: column; align-items: center; gap: 48px;
-            max-width: 400px;
+            display: flex; flex-direction: column; align-items: center; gap: clamp(32px, 8vh, 48px);
+            width: 100%; max-width: 400px;
         }
 
         .intro-pill {
             padding: 8px 16px;
             border-radius: 4px;
-            font-size: 10px; font-weight: 500;
+            font-size: clamp(9px, 2vw, 10px); font-weight: 500;
             color: rgba(255,255,255,0.4);
             letter-spacing: 0.4em;
             text-transform: uppercase;
@@ -415,36 +417,48 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         .intro-logo {
-            font-size: 52px; font-weight: 300; letter-spacing: 0.08em;
+            font-size: clamp(40px, 12vw, 64px); 
+            font-weight: 200; 
+            letter-spacing: 0.2em;
             color: #fff; margin: 0;
-            text-transform: lowercase;
+            text-transform: uppercase;
             animation: logoSlide 1.5s cubic-bezier(0.19, 1, 0.22, 1);
         }
 
         @keyframes logoSlide {
-            from { opacity: 0; letter-spacing: 0.4em; transform: translateY(20px); }
-            to { opacity: 1; letter-spacing: 0.08em; transform: translateY(0); }
+            from { opacity: 0; letter-spacing: 0.6em; transform: translateY(20px); }
+            to { opacity: 1; letter-spacing: 0.2em; transform: translateY(0); }
         }
 
         .enter-btn {
             background: #fff; color: #000;
-            border: none; padding: 14px 40px; border-radius: 2px;
-            font-size: 11px; font-weight: 700; cursor: pointer;
+            border: none; padding: 16px 48px; border-radius: 2px;
+            font-size: clamp(10px, 2.5vw, 12px); font-weight: 700; cursor: pointer;
             transition: all 0.4s ease;
             letter-spacing: 0.2em;
             text-transform: uppercase;
             animation: fadeIn 3s ease-out;
+            width: 100%;
+            max-width: 240px;
         }
 
         .enter-btn:hover {
             letter-spacing: 0.4em;
-            padding: 14px 48px;
             background: #fff;
+            transform: scale(1.02);
         }
 
         .enter-btn:active { transform: scale(0.96); }
 
         .ai-status { font-size: 11px; color: #00FFFF; text-align: center; font-weight: 500; margin-top: 4px; }
+
+        /* Mobile Utility */
+        @media (max-width: 600px) {
+            .toolbar { top: 12px; transform: translateX(-50%) scale(0.85); width: 95vw; justify-content: center; overflow-x: auto; }
+            .bottom-bar { bottom: 12px; transform: translateX(-50%) scale(0.8); }
+            .color-picker-container, #particleSettingsContainer, #rubberColorContainer { bottom: 12px; transform: translateX(-50%) scale(0.9); }
+            .intro-logo { letter-spacing: 0.15em; }
+        }
 
         video { display: none; }
     </style>
@@ -454,7 +468,7 @@
     <div id="introOverlay">
         <div class="intro-card">
             <div class="intro-pill">Visions of Reality</div>
-            <h1 class="intro-logo">gesture ar</h1>
+            <h1 class="intro-logo">GESTURE</h1>
             <button class="enter-btn" id="enterBtn">Initialize</button>
         </div>
     </div>
@@ -472,7 +486,7 @@
 
     <!-- UI Overlay -->
     <div class="top-bar">
-        <div class="logo">Gesture AR</div>
+        <div class="logo">GESTURE</div>
         <div class="status-area">
             <button id="toggleStrings" class="glass-btn" title="Intense Two-Hands String Art">
                 <span style="font-size: 14px;">🧶</span>
