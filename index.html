@@ -1846,23 +1846,36 @@
 
         function renderFaceMesh(landmarks) {
             uiCtx.save();
-            landmarks.forEach((lm, i) => {
-                // Render all 468 landmarks for high-fidelity 'Holo-Face' effect
-                uiCtx.beginPath(); 
-                uiCtx.arc((1 - lm.x) * width, lm.y * height, 0.6, 0, Math.PI * 2);
-                uiCtx.fillStyle = 'rgba(0, 240, 255, 0.4)'; 
-                uiCtx.fill();
-                
-                // Add sporadic 'sparkling' effect to key facial nodes
-                if(i % 20 === 0) {
-                    uiCtx.beginPath();
-                    uiCtx.arc((1 - lm.x) * width, lm.y * height, 1.2, 0, Math.PI * 2);
-                    uiCtx.fillStyle = 'rgba(0, 240, 255, 0.8)';
-                    uiCtx.shadowBlur = 4;
-                    uiCtx.shadowColor = '#00F0FF';
-                    uiCtx.fill();
-                }
-            });
+            const mw = width;
+            const mh = height;
+            
+            // OPTIMIZED PASS: Draw all 468 dots in a single batch
+            uiCtx.beginPath();
+            uiCtx.fillStyle = 'rgba(0, 240, 255, 0.4)';
+            for (let i = 0; i < landmarks.length; i++) {
+                const lm = landmarks[i];
+                const x = (1 - lm.x) * mw;
+                const y = lm.y * mh;
+                // Using rect for slightly faster rendering of small points than arc
+                uiCtx.rect(x - 0.5, y - 0.5, 1, 1);
+            }
+            uiCtx.fill();
+
+            // SECOND PASS: Accent highlights for key zones (eyes, mouth, nose)
+            // This is efficient because it's only a subset of points
+            uiCtx.beginPath();
+            uiCtx.fillStyle = 'rgba(0, 240, 255, 0.9)';
+            const accentPoints = [33, 263, 1, 61, 291, 199, 4, 152, 10, 164, 454, 234]; // Expanded anchors
+            for (let i = 0; i < accentPoints.length; i++) {
+                const idx = accentPoints[i];
+                const lm = landmarks[idx];
+                const x = (1 - lm.x) * mw;
+                const y = lm.y * mh;
+                uiCtx.moveTo(x + 1.5, y);
+                uiCtx.arc(x, y, 1.5, 0, Math.PI * 2);
+            }
+            uiCtx.fill();
+            
             uiCtx.restore();
         }
 
