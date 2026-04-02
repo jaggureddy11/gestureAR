@@ -948,14 +948,14 @@
             if (audioCtx.state === 'suspended') audioCtx.resume();
             
             if (!stretchOsc) {
-                // Using Sine for a smooth, deep, heavy physical thud instead of Buzz
+                // Triangle provides slightly richer harmonics for a 'thick' rubber ththud
                 stretchOsc = audioCtx.createOscillator();
-                stretchOsc.type = 'sine';
+                stretchOsc.type = 'triangle';
 
-                // Deep lowpass filter (250Hz) for that heavy sub-bass rubber feel
+                // Core low-frequency filtering at 180Hz for a deep chest-thumping sound
                 frictionFilter = audioCtx.createBiquadFilter();
                 frictionFilter.type = 'lowpass';
-                frictionFilter.frequency.value = 250;
+                frictionFilter.frequency.value = 180;
 
                 stretchGain = audioCtx.createGain();
                 stretchGain.gain.value = 0;
@@ -1991,15 +1991,18 @@
 
             if (audioCtx && stretchGain) {
                 const velocity = centerDist - lastStretchDist;
-                // Deep, heavy sub-bass frequency tuning
-                const baseFreq = 40 + (globalTension * 120); // Sub-40Hz to 160Hz for deep 'thrum'
-                const wobble = Math.abs(velocity * 0.5);
-                stretchOsc.frequency.setTargetAtTime(baseFreq + wobble, audioCtx.currentTime, 0.05);
-                frictionFilter.frequency.setTargetAtTime(200 + globalTension * 300, audioCtx.currentTime, 0.05);
+                // Deeper tension-bound frequency (35Hz to 110Hz)
+                const tensionFreq = 35 + (globalTension * 75); 
+                const activityIntensity = Math.abs(velocity * 0.4);
                 
-                const isStretching = Math.abs(velocity) > 0.5;
-                const targetGain = isStretching ? Math.min(0.5, (Math.abs(velocity) * 0.03) + (globalTension * 0.1)) : 0;
-                stretchGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.1);
+                stretchOsc.frequency.setTargetAtTime(tensionFreq + activityIntensity, audioCtx.currentTime, 0.05);
+                frictionFilter.frequency.setTargetAtTime(120 + globalTension * 150, audioCtx.currentTime, 0.05);
+                
+                // Only play sound when actively moving or under extreme tension
+                const isActive = Math.abs(velocity) > 0.8 || globalTension > 0.6;
+                const volume = isActive ? Math.min(0.4, (Math.abs(velocity) * 0.02) + (globalTension * 0.12)) : 0;
+                
+                stretchGain.gain.setTargetAtTime(volume, audioCtx.currentTime, 0.15);
                 lastStretchDist = centerDist;
             }
 
