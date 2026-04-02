@@ -1254,7 +1254,6 @@
             setupMediaPipe();
             initThreeJS();
             setupUI();
-            loadSettings(); // Load user preferences
             resize();
             window.addEventListener('resize', resize);
 
@@ -1357,46 +1356,6 @@
                     stopRubberAudio();
                     stopParticleAudio();
                 }
-                saveSettings(); // Persist changes
-            }
-
-            function saveSettings() {
-                const settings = {
-                    stringsMode, rubberMode, particlesMode, showMesh, showCam,
-                    activeColor, currentGlow, currentSize,
-                    particleTemplate: document.querySelector('.template-btn.active')?.getAttribute('data-template') || 'galaxy',
-                    isMultiColor, particleColor: document.getElementById('particleColorPicker').value,
-                    rubberColor: document.getElementById('rubberColorPicker').value
-                };
-                localStorage.setItem('gesture_settings', JSON.stringify(settings));
-            }
-
-            function loadSettings() {
-                const saved = localStorage.getItem('gesture_settings');
-                if (!saved) return;
-                const s = JSON.parse(saved);
-                
-                stringsMode = s.stringsMode;
-                rubberMode = s.rubberMode;
-                particlesMode = s.particlesMode;
-                showMesh = s.showMesh;
-                showCam = s.showCam;
-                
-                activeColor = s.activeColor;
-                currentGlow = s.currentGlow;
-                currentSize = s.currentSize;
-                
-                document.getElementById('glowSlider').value = currentGlow;
-                document.getElementById('sizeSlider').value = currentSize;
-                
-                if (s.particleTemplate) setParticleTemplate(s.particleTemplate);
-                isMultiColor = s.isMultiColor;
-                document.getElementById('particleColorPicker').value = s.particleColor || '#FFFFFF';
-                document.getElementById('rubberColorPicker').value = s.rubberColor || 'rainbow';
-                
-                canvasBg.style.opacity = showCam ? '1.0' : '0.0';
-                
-                updateUIVisibility();
             }
 
             document.querySelectorAll('.template-btn').forEach(btn => {
@@ -2168,34 +2127,27 @@
             uiCtx.save();
             const mw = width;
             const mh = height;
+            const time = performance.now() * 0.001;
 
-            // 1. TOPOLOGICAL MESH (The Mask Wireframe)
-            // Draw a high-fidelity 'Holo-Mask' using key facial region loops
+            // 1. CINEMATIC MASK WIREFRAME (Loops)
             uiCtx.beginPath();
-            uiCtx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+            uiCtx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
             uiCtx.lineWidth = 0.5;
 
-            const startLM = landmarks[0]; // Global center anchor
-            const FACE_REGIONS = [
+            const FACE_LOOPS = [
                 // Detailed Face Outline
                 [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10],
-                // Nose Structure (High Detail)
-                [168, 6, 197, 195, 5, 4, 1, 19, 94, 2],
-                [98, 97, 102, 126, 209, 198, 174, 217, 232, 201, 200, 421, 452, 399, 437, 355, 327, 326],
-                // Right Eye & Eyebrow
+                // Eye Contours
                 [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246, 33],
-                [46, 53, 52, 65, 55, 107, 66, 105, 63, 70],
-                // Left Eye & Eyebrow
                 [263, 249, 390, 373, 374, 380, 381, 382, 362, 398, 384, 385, 386, 387, 388, 466, 263],
-                [276, 283, 282, 295, 285, 336, 296, 334, 293, 300],
-                // Mouth Outer & Inner
+                // Detailed Mouth
                 [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 61],
-                [78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308],
-                // Vertical Cross-Section (Forehead to Chin)
-                [10, 151, 9, 8, 168, 6, 197, 195, 5, 4, 1, 19, 94, 2, 164, 0, 11, 12, 13, 14, 15, 16, 17, 18, 200, 199, 175, 152]
+                [78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 78],
+                // Nose Mapping
+                [168, 6, 197, 195, 5, 4, 1, 19, 94, 2, 98, 97, 102, 126, 209, 198, 174, 217, 232, 201, 200, 168]
             ];
 
-            FACE_REGIONS.forEach(region => {
+            FACE_LOOPS.forEach(region => {
                 const start = landmarks[region[0]];
                 uiCtx.moveTo((1 - start.x) * mw, start.y * mh);
                 for (let i = 1; i < region.length; i++) {
@@ -2205,39 +2157,56 @@
             });
             uiCtx.stroke();
 
-            // 2. RADIAL CONNECTORS (Spiderman/Mask effect)
+            // 2. ADAPTIVE SKIN TESSELLATION (The "Mask" Feel)
+            // Connect points to create a digital skin texture
             uiCtx.beginPath();
-            uiCtx.strokeStyle = 'rgba(0, 240, 255, 0.05)';
-            const bridge = landmarks[168]; // Center point
-            for (let i = 0; i < landmarks.length; i += 15) {
-                const lm = landmarks[i];
-                uiCtx.moveTo((1 - bridge.x) * mw, bridge.y * mh);
-                uiCtx.lineTo((1 - lm.x) * mw, lm.y * mh);
+            uiCtx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
+            for(let i=0; i<landmarks.length; i += 20) {
+                const p1 = landmarks[i];
+                const p2 = landmarks[(i + 15) % landmarks.length];
+                uiCtx.moveTo((1 - p1.x) * mw, p1.y * mh);
+                uiCtx.lineTo((1 - p2.x) * mw, p2.y * mh);
             }
             uiCtx.stroke();
 
-            // 3. OPTIMIZED DOT PASS (Full 468 Grid)
+            // 3. FULL POINT CLOUD (All 468 points - Maximum Density)
             uiCtx.beginPath();
             uiCtx.fillStyle = 'rgba(0, 240, 255, 0.5)';
             for (let i = 0; i < landmarks.length; i++) {
                 const lm = landmarks[i];
-                uiCtx.rect((1 - lm.x) * mw - 0.4, lm.y * mh - 0.4, 0.8, 0.8);
+                const x = (1 - lm.x) * mw;
+                const y = lm.y * mh;
+                uiCtx.rect(x - 0.5, y - 0.5, 1, 1);
             }
             uiCtx.fill();
 
-            // SECOND PASS: Accent highlights for key zones (eyes, mouth, nose)
-            // This is efficient because it's only a subset of points
+            // 4. NEON "SCAN-LINE" EFFECT
+            const scanY = ((time * 0.5) % 1.0) * mh;
             uiCtx.beginPath();
-            uiCtx.fillStyle = 'rgba(0, 240, 255, 0.9)';
-            const accentPoints = [33, 263, 1, 61, 291, 199, 4, 152, 10, 164, 454, 234]; // Expanded anchors
-            for (let i = 0; i < accentPoints.length; i++) {
-                const idx = accentPoints[i];
+            uiCtx.strokeStyle = 'rgba(0, 240, 255, 0.6)';
+            uiCtx.lineWidth = 1;
+            for (let i = 0; i < landmarks.length; i++) {
+                const lm = landmarks[i];
+                const py = lm.y * mh;
+                if(Math.abs(py - scanY) < 10) {
+                    const px = (1 - lm.x) * mw;
+                    uiCtx.moveTo(px - 3, py);
+                    uiCtx.lineTo(px + 3, py);
+                }
+            }
+            uiCtx.stroke();
+
+            // 5. ANCHOR HIGHLIGHTS
+            uiCtx.beginPath();
+            uiCtx.fillStyle = '#00F0FF';
+            const accentPoints = [33, 263, 1, 61, 291, 199, 4, 152, 10, 164, 454, 234];
+            accentPoints.forEach(idx => {
                 const lm = landmarks[idx];
                 const x = (1 - lm.x) * mw;
                 const y = lm.y * mh;
-                uiCtx.moveTo(x + 1.5, y);
-                uiCtx.arc(x, y, 1.5, 0, Math.PI * 2);
-            }
+                uiCtx.moveTo(x + 2, y);
+                uiCtx.arc(x, y, 2, 0, Math.PI * 2);
+            });
             uiCtx.fill();
 
             uiCtx.restore();
