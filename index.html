@@ -948,14 +948,14 @@
             if (audioCtx.state === 'suspended') audioCtx.resume();
             
             if (!stretchOsc) {
-                // Slow sawtooth provides individual impulse clicks mimicking physical friction
+                // Using Sine for a smooth, deep, heavy physical thud instead of Buzz
                 stretchOsc = audioCtx.createOscillator();
-                stretchOsc.type = 'sawtooth';
+                stretchOsc.type = 'sine';
 
-                // Lowpass filter makes the popping sound thick, dull, and soft like physical rubber
+                // Deep lowpass filter (250Hz) for that heavy sub-bass rubber feel
                 frictionFilter = audioCtx.createBiquadFilter();
                 frictionFilter.type = 'lowpass';
-                frictionFilter.frequency.value = 600;
+                frictionFilter.frequency.value = 250;
 
                 stretchGain = audioCtx.createGain();
                 stretchGain.gain.value = 0;
@@ -1991,12 +1991,15 @@
 
             if (audioCtx && stretchGain) {
                 const velocity = centerDist - lastStretchDist;
-                const clickRate = Math.min(30, 2 + Math.abs(velocity * 0.8));
-                stretchOsc.frequency.setTargetAtTime(clickRate, audioCtx.currentTime, 0.05);
-                frictionFilter.frequency.setTargetAtTime(300 + globalTension * 800, audioCtx.currentTime, 0.05);
-                const isStretching = velocity > 1.5;
-                const targetGain = isStretching ? Math.min(0.6, (velocity * 0.04) + (globalTension * 0.15)) : 0;
-                stretchGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
+                // Deep, heavy sub-bass frequency tuning
+                const baseFreq = 40 + (globalTension * 120); // Sub-40Hz to 160Hz for deep 'thrum'
+                const wobble = Math.abs(velocity * 0.5);
+                stretchOsc.frequency.setTargetAtTime(baseFreq + wobble, audioCtx.currentTime, 0.05);
+                frictionFilter.frequency.setTargetAtTime(200 + globalTension * 300, audioCtx.currentTime, 0.05);
+                
+                const isStretching = Math.abs(velocity) > 0.5;
+                const targetGain = isStretching ? Math.min(0.5, (Math.abs(velocity) * 0.03) + (globalTension * 0.1)) : 0;
+                stretchGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.1);
                 lastStretchDist = centerDist;
             }
 
