@@ -386,12 +386,70 @@
         .ai-btn { background: rgba(255,255,255,0.1); border: 1px solid var(--ui-border); color: #fff; flex: 1; padding: 12px; border-radius: 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.2s; }
         .ai-btn.primary { background: var(--text-main); color: #000; border: none; }
         .ai-btn:hover { transform: translateY(-2px); }
+        #introOverlay {
+            position: fixed; inset: 0;
+            background: #000000;
+            z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .intro-card {
+            text-align: center;
+            display: flex; flex-direction: column; align-items: center; gap: 32px;
+            animation: introFade 1.2s ease-out;
+        }
+
+        @keyframes introFade {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .intro-logo {
+            font-size: 48px; font-weight: 600; letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #FFF 0%, rgba(255,255,255,0.4) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        .intro-pill {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 12px 32px;
+            border-radius: 40px;
+            font-size: 14px; font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .enter-btn {
+            background: #FFFFFF; color: #000000;
+            border: none; padding: 18px 48px; border-radius: 40px;
+            font-size: 16px; font-weight: 700; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 30px rgba(255,255,255,0.1);
+        }
+
+        .enter-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 45px rgba(255,255,255,0.2);
+        }
+
         .ai-status { font-size: 11px; color: #00FFFF; text-align: center; font-weight: 500; margin-top: 4px; }
 
         video { display: none; }
     </style>
 </head>
 <body>
+    <!-- Intro Welcome Card -->
+    <div id="introOverlay">
+        <div class="intro-card">
+            <div class="intro-pill">Spatial Computing</div>
+            <h1 class="intro-logo">Gesture AR</h1>
+            <button class="enter-btn" id="enterBtn">ENTER SPACE</button>
+        </div>
+    </div>
+
     <!-- Render Layers -->
     <canvas id="canvasBg"></canvas>   <!-- Live Camera / AR Base -->
     <canvas id="canvasDraw"></canvas> <!-- Vector Strokes -->
@@ -872,11 +930,25 @@
            INITIALIZATION
            ================= */
         function init() {
+            setupMediaPipe();
             initThreeJS();
+            setupUI();
             resize();
             window.addEventListener('resize', resize);
-            setupUI();
-            setupMediaPipe();
+            
+            // Welcome Card Logic
+            document.getElementById('enterBtn').onclick = () => {
+                const intro = document.getElementById('introOverlay');
+                intro.style.opacity = '0';
+                intro.style.pointerEvents = 'none';
+                setTimeout(() => { intro.style.display = 'none'; }, 800);
+                
+                // Initialize context on first click if needed
+                if(!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            };
+
             requestAnimationFrame(renderLoop);
         }
 
