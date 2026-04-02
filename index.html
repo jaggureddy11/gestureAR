@@ -567,87 +567,86 @@
         }
 
         #introOverlay {
-            position: fixed;
-            inset: 0;
+            position: fixed; inset: 0;
             background: #000;
             z-index: 200;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
             transition: all 1.2s cubic-bezier(0.19, 1, 0.22, 1);
             font-family: 'Outfit', sans-serif;
             padding: 24px;
             box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* Cinematic Grain & Static Texture */
+        #introOverlay::before {
+            content: "";
+            position: absolute; inset: 0;
+            background-image: url("https://www.transparenttextures.com/patterns/stardust.png");
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Moving Light Beam */
+        .intro-beam {
+            position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle at center, rgba(0, 240, 255, 0.05) 0%, transparent 40%);
+            animation: beamMove 15s infinite linear;
+            z-index: 0;
+        }
+
+        @keyframes beamMove {
+            from { transform: translate(-10%, -10%) rotate(0deg); }
+            to { transform: translate(10%, 10%) rotate(360deg); }
         }
 
         .intro-card {
+            position: relative; z-index: 10;
             text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: clamp(32px, 8vh, 48px);
-            width: 100%;
-            max-width: 400px;
+            display: flex; flex-direction: column; align-items: center; gap: clamp(48px, 10vh, 64px);
+            width: 100%; max-width: 500px;
         }
 
         .intro-pill {
-            padding: 8px 16px;
-            border-radius: 4px;
-            font-size: clamp(9px, 2vw, 10px);
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.4);
-            letter-spacing: 0.4em;
+            padding: 6px 20px;
+            border-radius: 2px;
+            font-size: clamp(8px, 1.5vw, 9px); font-weight: 600;
+            color: #00F0FF;
+            letter-spacing: 0.6em;
             text-transform: uppercase;
-            border: 0.5px solid rgba(255, 255, 255, 0.1);
-            animation: fadeIn 2s ease-out;
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            background: rgba(0, 240, 255, 0.05);
+            animation: fadeInPill 2s cubic-bezier(0.19, 1, 0.22, 1);
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
+        @keyframes fadeInPill { from { opacity: 0; letter-spacing: 1.5em; } to { opacity: 1; letter-spacing: 0.6em; } }
 
         .intro-logo {
-            font-size: clamp(40px, 12vw, 64px);
-            font-weight: 200;
-            letter-spacing: 0.2em;
-            color: #fff;
-            margin: 0;
+            font-size: clamp(48px, 14vw, 84px); 
+            font-weight: 200; 
+            letter-spacing: 0.25em;
+            color: #fff; margin: 0;
             text-transform: uppercase;
-            animation: logoSlide 1.5s cubic-bezier(0.19, 1, 0.22, 1);
+            background: linear-gradient(180deg, #FFFFFF 0%, rgba(255,255,255,0.2) 100%);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: logoReveal 2s cubic-bezier(0.19, 1, 0.22, 1);
         }
 
-        @keyframes logoSlide {
-            from {
-                opacity: 0;
-                letter-spacing: 0.6em;
-                transform: translateY(20px);
-            }
+        @keyframes logoReveal {
+            0% { opacity: 0; transform: translateY(30px) scale(0.95); filter: blur(10px); }
+            100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+        }
 
-            to {
-                opacity: 1;
-                letter-spacing: 0.2em;
-                transform: translateY(0);
-            }
+        .enter-btn-wrapper {
+            position: relative;
+            padding: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: btnSlide 3s infinite linear;
         }
 
         .enter-btn {
-            background: #fff;
-            color: #000;
-            border: none;
-            padding: 16px 48px;
-            border-radius: 2px;
-            font-size: clamp(10px, 2.5vw, 12px);
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.4s ease;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
             animation: fadeIn 3s ease-out;
             width: 100%;
             max-width: 240px;
@@ -748,10 +747,13 @@
 <body>
     <!-- Extreme Minimal Intro -->
     <div id="introOverlay">
+        <div class="intro-beam"></div>
         <div class="intro-card">
             <div class="intro-pill">Visions of Reality</div>
             <h1 class="intro-logo">GESTURE</h1>
-            <button class="enter-btn" id="enterBtn">Initialize</button>
+            <div class="enter-btn-wrapper">
+                <button class="enter-btn" id="enterBtn">Initialize</button>
+            </div>
         </div>
     </div>
 
