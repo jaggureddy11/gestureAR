@@ -944,12 +944,15 @@
         function initRubberAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            if (!stretchOsc) {
                 // Slow sawtooth provides individual impulse clicks mimicking physical friction
                 stretchOsc = audioCtx.createOscillator();
                 stretchOsc.type = 'sawtooth';
 
-                // Lowpass filter makes the popping sound thick, dull, and soft like physical rubber instead of a harsh buzzer
+                // Lowpass filter makes the popping sound thick, dull, and soft like physical rubber
                 frictionFilter = audioCtx.createBiquadFilter();
                 frictionFilter.type = 'lowpass';
                 frictionFilter.frequency.value = 600;
@@ -963,7 +966,6 @@
 
                 stretchOsc.start();
             }
-            if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
         function stopRubberAudio() {
