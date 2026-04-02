@@ -452,12 +452,31 @@
 
         .ai-status { font-size: 11px; color: #00FFFF; text-align: center; font-weight: 500; margin-top: 4px; }
 
-        /* Mobile Utility */
+        /* Mobile HUD Optimization */
         @media (max-width: 600px) {
-            .toolbar { top: 12px; transform: translateX(-50%) scale(0.85); width: 95vw; justify-content: center; overflow-x: auto; }
-            .bottom-bar { bottom: 12px; transform: translateX(-50%) scale(0.8); }
-            .color-picker-container, #particleSettingsContainer, #rubberColorContainer { bottom: 12px; transform: translateX(-50%) scale(0.9); }
-            .intro-logo { letter-spacing: 0.15em; }
+            .logo { font-size: 10px; padding-left: 0; }
+            .top-bar { padding: 12px; gap: 8px; flex-direction: row; justify-content: space-between; }
+            .status-area { gap: 4px; width: auto; }
+            .glass-btn { padding: 8px; border-radius: 10px; }
+            .glass-btn .label { display: none; } /* Surgical removal of text on mobile */
+            .glass-btn span { font-size: 18px !important; margin: 0; }
+            
+            .bottom-bar { 
+                bottom: 20px; 
+                width: 90%; 
+                transform: translateX(-50%) scale(0.9); 
+            }
+            .control-pill { padding: 8px 16px; gap: 12px; }
+            .control-label { font-size: 8px; }
+            input[type=range] { width: 50px; }
+            
+            .color-picker-container, #particleSettingsContainer, #rubberColorContainer { 
+                bottom: 80px; 
+                width: 90%; 
+                transform: translateX(-50%) scale(0.9);
+                padding: 10px;
+            }
+            .intro-logo { font-size: 48px; letter-spacing: 0.15em; }
         }
 
         video { display: none; }
@@ -488,24 +507,24 @@
     <div class="top-bar">
         <div class="logo">GESTURE</div>
         <div class="status-area">
-            <button id="toggleStrings" class="glass-btn" title="Intense Two-Hands String Art">
-                <span style="font-size: 14px;">🧶</span>
-                <span>Strings</span>
+            <button id="toggleStrings" class="glass-btn" title="Strings">
+                <span>🧶</span>
+                <span class="label">Strings</span>
             </button>
-            <button id="toggleRubbers" class="glass-btn" title="Realistic Physics Rubber Bands">
-                <span style="font-size: 14px;">🪀</span>
-                <span>Rubbers</span>
+            <button id="toggleRubbers" class="glass-btn" title="Rubbers">
+                <span>🪀</span>
+                <span class="label">Rubbers</span>
             </button>
-            <button id="toggleParticles" class="glass-btn" title="Interactive 3D Particles">
-                <span style="font-size: 14px;">✨</span>
-                <span>Particles</span>
+            <button id="toggleParticles" class="glass-btn" title="Particles">
+                <span>✨</span>
+                <span class="label">Particles</span>
             </button>
-            <button id="toggleMesh" class="glass-btn">
-                <span>Face Mesh</span>
+            <button id="toggleMesh" class="glass-btn" title="Mesh">
+                <span class="label">Face Mesh</span>
             </button>
             <button id="toggleCam" class="glass-btn" style="background: rgba(255,255,255,0.1);">
                 <div class="status-dot" style="background:#39FF14; box-shadow:0 0 8px #39FF14"></div>
-                <span>Camera ON</span>
+                <span class="label">Camera ON</span>
             </button>
         </div>
     </div>
