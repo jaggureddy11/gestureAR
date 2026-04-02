@@ -1849,14 +1849,50 @@
             const mw = width;
             const mh = height;
             
-            // OPTIMIZED PASS: Draw all 468 dots in a single batch
+            // 1. TOPOLOGICAL MESH (The Mask Wireframe)
+            // Draw a high-fidelity 'Holo-Mask' using key facial region loops
+            uiCtx.beginPath();
+            uiCtx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+            uiCtx.lineWidth = 0.5;
+            
+            const FACE_REGIONS = [
+                // Outline
+                [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10],
+                // Right Eye
+                [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246, 33],
+                // Left Eye
+                [263, 249, 390, 373, 374, 380, 381, 382, 362, 398, 384, 385, 386, 387, 388, 466, 263],
+                // Lips Outer
+                [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 61],
+                // Lips Inner
+                [78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 78],
+                // Right Eyebrow
+                [70, 63, 105, 66, 107, 55, 65, 52, 53, 46, 70],
+                // Left Eyebrow
+                [300, 293, 334, 296, 336, 285, 295, 282, 283, 276, 300],
+                // Nose Bridge & Base
+                [168, 6, 197, 195, 5, 4, 1, 19, 94, 2],
+                [98, 97, 102, 126, 209, 198, 174, 217, 232, 201, 200]
+            ];
+
+            FACE_REGIONS.forEach(region => {
+                const start = landmarks[region[0]];
+                uiCtx.moveTo((1 - start.x) * mw, start.y * mh);
+                for(let i=1; i<region.length; i++){
+                    const next = landmarks[region[i]];
+                    uiCtx.lineTo((1 - next.x) * mw, next.y * mh);
+                }
+            });
+            uiCtx.stroke();
+
+            // 2. OPTIMIZED DOT PASS (Surface Detail)
             uiCtx.beginPath();
             uiCtx.fillStyle = 'rgba(0, 240, 255, 0.4)';
             for (let i = 0; i < landmarks.length; i++) {
+                if (i % 3 !== 0) continue; // Draw fewer dots since we have the wireframe now
                 const lm = landmarks[i];
                 const x = (1 - lm.x) * mw;
                 const y = lm.y * mh;
-                // Using rect for slightly faster rendering of small points than arc
                 uiCtx.rect(x - 0.5, y - 0.5, 1, 1);
             }
             uiCtx.fill();
