@@ -1,0 +1,17 @@
+{
+  "name": "aidraw",
+  "version": "1.0.0",
+  "description": "",
+  "main": "env.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@gradio/client": "^2.1.0",
+    "@huggingface/inference": "^4.13.15"
+  }
+}
