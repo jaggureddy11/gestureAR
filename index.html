@@ -567,86 +567,87 @@
         }
 
         #introOverlay {
-            position: fixed; inset: 0;
+            position: fixed;
+            inset: 0;
             background: #000;
             z-index: 200;
-            display: flex; align-items: center; justify-content: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             transition: all 1.2s cubic-bezier(0.19, 1, 0.22, 1);
             font-family: 'Outfit', sans-serif;
             padding: 24px;
             box-sizing: border-box;
-            overflow: hidden;
-        }
-
-        /* Cinematic Grain & Static Texture */
-        #introOverlay::before {
-            content: "";
-            position: absolute; inset: 0;
-            background-image: url("https://www.transparenttextures.com/patterns/stardust.png");
-            opacity: 0.15;
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        /* Moving Light Beam */
-        .intro-beam {
-            position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-            background: radial-gradient(circle at center, rgba(0, 240, 255, 0.05) 0%, transparent 40%);
-            animation: beamMove 15s infinite linear;
-            z-index: 0;
-        }
-
-        @keyframes beamMove {
-            from { transform: translate(-10%, -10%) rotate(0deg); }
-            to { transform: translate(10%, 10%) rotate(360deg); }
         }
 
         .intro-card {
-            position: relative; z-index: 10;
             text-align: center;
-            display: flex; flex-direction: column; align-items: center; gap: clamp(48px, 10vh, 64px);
-            width: 100%; max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: clamp(32px, 8vh, 48px);
+            width: 100%;
+            max-width: 400px;
         }
 
         .intro-pill {
-            padding: 6px 20px;
-            border-radius: 2px;
-            font-size: clamp(8px, 1.5vw, 9px); font-weight: 600;
-            color: #00F0FF;
-            letter-spacing: 0.6em;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: clamp(9px, 2vw, 10px);
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 0.4em;
             text-transform: uppercase;
-            border: 1px solid rgba(0, 240, 255, 0.2);
-            background: rgba(0, 240, 255, 0.05);
-            animation: fadeInPill 2s cubic-bezier(0.19, 1, 0.22, 1);
+            border: 0.5px solid rgba(255, 255, 255, 0.1);
+            animation: fadeIn 2s ease-out;
         }
 
-        @keyframes fadeInPill { from { opacity: 0; letter-spacing: 1.5em; } to { opacity: 1; letter-spacing: 0.6em; } }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
 
         .intro-logo {
-            font-size: clamp(48px, 14vw, 84px); 
-            font-weight: 200; 
-            letter-spacing: 0.25em;
-            color: #fff; margin: 0;
+            font-size: clamp(40px, 12vw, 64px);
+            font-weight: 200;
+            letter-spacing: 0.2em;
+            color: #fff;
+            margin: 0;
             text-transform: uppercase;
-            background: linear-gradient(180deg, #FFFFFF 0%, rgba(255,255,255,0.2) 100%);
-            -webkit-background-clip: text; background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: logoReveal 2s cubic-bezier(0.19, 1, 0.22, 1);
+            animation: logoSlide 1.5s cubic-bezier(0.19, 1, 0.22, 1);
         }
 
-        @keyframes logoReveal {
-            0% { opacity: 0; transform: translateY(30px) scale(0.95); filter: blur(10px); }
-            100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
-        }
+        @keyframes logoSlide {
+            from {
+                opacity: 0;
+                letter-spacing: 0.6em;
+                transform: translateY(20px);
+            }
 
-        .enter-btn-wrapper {
-            position: relative;
-            padding: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            animation: btnSlide 3s infinite linear;
+            to {
+                opacity: 1;
+                letter-spacing: 0.2em;
+                transform: translateY(0);
+            }
         }
 
         .enter-btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 16px 48px;
+            border-radius: 2px;
+            font-size: clamp(10px, 2.5vw, 12px);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
             animation: fadeIn 3s ease-out;
             width: 100%;
             max-width: 240px;
@@ -747,13 +748,10 @@
 <body>
     <!-- Extreme Minimal Intro -->
     <div id="introOverlay">
-        <div class="intro-beam"></div>
         <div class="intro-card">
             <div class="intro-pill">Visions of Reality</div>
             <h1 class="intro-logo">GESTURE</h1>
-            <div class="enter-btn-wrapper">
-                <button class="enter-btn" id="enterBtn">Initialize</button>
-            </div>
+            <button class="enter-btn" id="enterBtn">Initialize</button>
         </div>
     </div>
 
@@ -961,6 +959,13 @@
         let currentPoints = [];
         let velocities = [];
         const NUM_PARTICLES = 5000;
+        let globalScale = 1.0;
+
+        // --- Rubber Band Audio ---
+        let stretchGain = null;
+        let stretchOsc = null;
+        let frictionFilter = null;
+        let lastStretchDist = 0;
 
         function createGlowTexture() {
             const canvas = document.createElement('canvas');
@@ -1055,6 +1060,34 @@
 
         function initParticleAudio() { }
         function stopParticleAudio() { }
+
+        function initRubberAudio() {
+            if (!audioCtx) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (stretchGain) return; // Already init
+
+            stretchGain = audioCtx.createGain();
+            stretchGain.gain.value = 0;
+
+            frictionFilter = audioCtx.createBiquadFilter();
+            frictionFilter.type = 'lowpass';
+            frictionFilter.frequency.value = 800;
+
+            stretchOsc = audioCtx.createOscillator();
+            stretchOsc.type = 'sawtooth';
+            stretchOsc.frequency.value = 2; // Initial click rate
+
+            stretchOsc.connect(frictionFilter);
+            frictionFilter.connect(stretchGain);
+            stretchGain.connect(audioCtx.destination);
+            stretchOsc.start();
+        }
+
+        function stopRubberAudio() {
+            if (stretchGain) {
+                stretchGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+            }
+        }
 
         function updateParticleColor() {
             const hex = document.getElementById('particleColorPicker').value;
@@ -1316,10 +1349,16 @@
 
                 if (anyMode) {
                     document.getElementById('gestureStatus').style.display = 'none';
-                    if (particlesMode) initParticleAudio();
-                    else stopParticleAudio();
+                    if (particlesMode) {
+                        initParticleAudio();
+                        stopRubberAudio();
+                    } else if (stringsMode || rubberMode) {
+                        initRubberAudio();
+                        stopParticleAudio();
+                    }
                 } else {
                     stopParticleAudio();
+                    stopRubberAudio();
                 }
             }
 
@@ -1642,7 +1681,7 @@
                     const centerY = activeY;
                     const handsDist = activeHandsDist;
                     const combinedOpenness = activeOpenness;
-                    const globalScale = 0.5 + handsDist * 5.0; // Restored dynamic zoom
+                    globalScale = 0.5 + handsDist * 5.0; // Restored dynamic zoom
 
                     // Dispersion (noise) increases exponentially as hands close 
                     const dispersion = Math.max(0, 0.45 - combinedOpenness) * 40.0;
@@ -1951,6 +1990,19 @@
             const cx2 = (1 - hand2[9].x) * width; const cy2 = hand2[9].y * height;
             const centerDist = Math.hypot(cx2 - cx1, cy2 - cy1);
             const globalTension = Math.min(1, centerDist / width);
+
+            // Update audio representation (Authentic Rubber Creak)
+            if (audioCtx && stretchGain) {
+                const velocity = centerDist - lastStretchDist;
+                const clickRate = Math.min(30, 2 + Math.abs(velocity * 0.8));
+                stretchOsc.frequency.setTargetAtTime(clickRate, audioCtx.currentTime, 0.05);
+                const baseTone = 300 + (globalTension * 800);
+                if (frictionFilter) frictionFilter.frequency.setTargetAtTime(baseTone, audioCtx.currentTime, 0.05);
+                const isStretching = velocity > 1.5;
+                const targetGain = isStretching ? Math.min(0.5, (velocity * 0.03) + (globalTension * 0.1)) : 0;
+                stretchGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
+                lastStretchDist = centerDist;
+            }
 
             const pointsToConnect = [4, 8, 12, 16, 20, 3, 7, 11, 15, 19];
             const colorSelection = document.getElementById('rubberColorPicker').value;
